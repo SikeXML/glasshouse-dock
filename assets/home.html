@@ -1,0 +1,424 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920,initial-scale=1">
+<title>Home</title>
+<!-- Glasshouse Dock: the Home screen. Replaces Glasshouse's assets/home.html
+     (the original is kept as home.glasshouse.html). ES5 only: webOS 4 runs it. -->
+<style>
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#080b12;color:#fff;font-family:"Outfit","Manrope",Arial,sans-serif}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outline:none;padding:0}
+#wall{position:absolute;inset:-1%;background:#080b12 center/cover no-repeat;transition:opacity .6s}
+#shade{position:absolute;inset:0;pointer-events:none}
+#boot{position:absolute;inset:0;background:#000;z-index:50;transition:opacity .3s;pointer-events:none}
+
+/* ---- widgets ---- */
+#widgets{position:absolute;z-index:2;display:flex;flex-direction:column;gap:6px;text-shadow:0 2px 14px rgba(0,0,0,.55);pointer-events:none}
+#widgets.top-left{left:5%;top:7%;align-items:flex-start}
+#widgets.top-right{right:5%;top:7%;align-items:flex-end;text-align:right}
+#widgets.top-center{left:0;right:0;top:7%;align-items:center;text-align:center}
+#widgets.center{left:0;right:0;top:30%;align-items:center;text-align:center}
+#widgets.bottom-right{right:5%;bottom:34%;align-items:flex-end;text-align:right}
+#time{font-weight:300;letter-spacing:-.02em;line-height:1}
+#time small{font-size:.38em;margin-left:.18em;opacity:.8;font-weight:400}
+.size-small #time{font-size:64px}.size-medium #time{font-size:96px}.size-large #time{font-size:140px}.size-huge #time{font-size:210px}
+#date{font-size:30px;opacity:.88}
+#greet{font-size:34px;font-weight:500}
+#weather{display:flex;align-items:center;gap:12px;font-size:32px}
+#weather svg{width:44px;height:44px}
+#weather .place{opacity:.75;font-size:26px}
+
+/* ---- the dock ---- */
+#dockwrap{position:absolute;left:0;right:0;bottom:11%;display:flex;justify-content:center;transition:transform .35s ease,bottom .35s}
+.pos-middle #dockwrap{bottom:40%}
+#dock{display:flex;gap:var(--gap);padding:var(--pad);border-radius:calc(var(--r) + var(--pad));max-width:86%}
+.bar #dock{background:rgba(218,222,232,.28);border:1px solid rgba(255,255,255,.22);box-shadow:0 20px 70px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(26px);backdrop-filter:blur(26px)}
+.tile{position:relative;flex:0 0 var(--w);width:var(--w);height:var(--h);border-radius:var(--r);display:flex;align-items:center;justify-content:center;transition:transform .16s ease,box-shadow .16s ease}
+.tile img{width:var(--icon);height:var(--icon);object-fit:contain;border-radius:calc(var(--r) * .7);pointer-events:none}
+.tile .txt{font-size:calc(var(--h) * .16);font-weight:600;text-align:center;padding:0 8px;line-height:1.15}
+.tile .label{position:absolute;left:0;right:0;top:calc(100% + 10px);text-align:center;font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .16s;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.labels .tile .label{opacity:.85}
+.tile.focus .label{opacity:1}
+.s-small{--w:170px;--h:104px;--icon:72px;--r:16px;--gap:12px;--pad:12px}
+.s-medium{--w:246px;--h:148px;--icon:106px;--r:20px;--gap:16px;--pad:18px}
+.s-large{--w:300px;--h:184px;--icon:132px;--r:24px;--gap:20px;--pad:20px}
+/* tiles: a colour each, as on an Apple TV */
+.st-tiles .tile{background:var(--bg,linear-gradient(145deg,#262a34,#10131a));box-shadow:0 6px 14px rgba(0,0,0,.25)}
+.st-tiles .tile.focus{transform:scale(1.08);box-shadow:0 0 0 4px var(--accent),0 18px 36px rgba(0,0,0,.45);z-index:3}
+/* glass: frosted squares */
+.st-glass .tile{background:rgba(255,255,255,.13);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.st-glass .tile img{width:calc(var(--icon) * .86);height:calc(var(--icon) * .86);opacity:.85;transition:opacity .16s}
+.st-glass .tile.focus{transform:scale(1.08);box-shadow:0 0 0 3px var(--accent);background:rgba(255,255,255,.24)}
+.st-glass .tile.focus img{opacity:1}
+/* clear: only the icons */
+.st-clear .tile img{filter:drop-shadow(0 3px 9px rgba(0,0,0,.45));opacity:.82;transition:opacity .16s}
+.st-clear .tile.focus{transform:scale(1.14)}
+.st-clear .tile.focus img{opacity:1}
+.st-clear .tile.focus::after{content:'';position:absolute;left:50%;bottom:2px;width:54px;height:4px;margin-left:-27px;border-radius:2px;background:var(--accent)}
+
+/* ---- the second row (Down) ---- */
+#row2{position:absolute;left:0;right:0;bottom:7%;display:flex;justify-content:center;gap:20px;opacity:0;transform:translateY(40px);transition:opacity .25s,transform .3s;pointer-events:none}
+.down #row2{opacity:1;transform:none;pointer-events:auto}
+.down #dockwrap{transform:translateY(-210px)}
+.down #hint{opacity:0}
+.r2{width:220px;height:130px;border-radius:20px;background:rgba(30,34,44,.72);border:1px solid rgba(255,255,255,.16);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);font-size:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;transition:transform .16s,box-shadow .16s}
+.r2 svg,.r2 img{width:46px;height:46px;object-fit:contain}
+.r2.focus{transform:scale(1.07);box-shadow:0 0 0 4px var(--accent)}
+#hint{position:absolute;left:0;right:0;bottom:4.6%;text-align:center;font-size:24px;opacity:.6;transition:opacity .2s;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+#hint i{display:inline-block;width:13px;height:13px;border-right:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg);margin-right:10px}
+.nohint #hint{display:none}
+
+/* ---- overlays: all apps, recent apps ---- */
+.sheet{position:absolute;inset:0;background:rgba(8,10,16,.9);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);z-index:20;padding:80px 110px;display:none;overflow:hidden}
+.sheet.open{display:block}
+.sheet h1{font-size:38px;font-weight:600;margin:0 0 34px}
+#grid{display:flex;flex-wrap:wrap;gap:26px;align-content:flex-start;height:calc(100% - 80px);overflow:hidden}
+.g{width:200px;height:170px;border-radius:20px;background:rgba(255,255,255,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-size:19px;padding:0 10px;text-align:center;transition:transform .14s,box-shadow .14s}
+.g img{width:86px;height:86px;object-fit:contain}
+.g span{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g.focus{transform:scale(1.07);box-shadow:0 0 0 4px var(--accent);background:rgba(255,255,255,.16)}
+#recents{inset:auto 0 0 0;height:38%;padding:30px 70px;border-radius:28px 28px 0 0}
+#recentRow{display:flex;gap:22px}
+.rc{flex:0 0 270px;height:220px;border-radius:18px;overflow:hidden;background:#232936;font-size:20px;transition:transform .14s,box-shadow .14s}
+.rc img{display:block;width:270px;height:152px;object-fit:cover;background:#11151e}
+.rc div{padding:16px 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc.focus{transform:scale(1.05);box-shadow:0 0 0 4px var(--accent)}
+#recentHint{font-size:19px;opacity:.6;margin-top:20px}
+#toast{position:absolute;left:50%;top:6%;transform:translateX(-50%);background:rgba(20,24,34,.9);padding:16px 28px;border-radius:14px;font-size:24px;display:none;z-index:40}
+</style>
+</head>
+<body>
+<div id="wall"></div><div id="shade"></div>
+<div id="widgets"><div id="greet"></div><div id="time"></div><div id="date"></div><div id="weather"></div></div>
+<div id="dockwrap"><div id="dock"></div></div>
+<div id="row2"></div>
+<div id="hint"><i></i>More</div>
+<div id="apps" class="sheet"><h1>All apps</h1><div id="grid"></div></div>
+<div id="recents" class="sheet"><h1>Recent apps</h1><div id="recentRow"></div><div id="recentHint">OK opens &middot; Down closes the app &middot; Back returns</div></div>
+<div id="toast"></div>
+<div id="boot"></div>
+<script>
+(function () {
+  'use strict';
+  var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461, ESC: 27, BKSP: 8 };
+  var cfg = null, cat = null, dock = [], row2 = [], focus = { row: 0, i: 0 }, mode = 'home', gridItems = [], recentItems = [];
+  var BOOT = Date.now(); /* icons are cached a day by Glasshouse: fresh ones on each start */
+  var $ = function (id) { return document.getElementById(id); };
+
+  function api(path, method, data, cb) {
+    var x = new XMLHttpRequest();
+    x.open(method, path);
+    if (method === 'POST') x.setRequestHeader('Content-Type', 'application/json');
+    x.onload = function () { var r = null; try { r = JSON.parse(x.responseText); } catch (e) {} if (cb) cb(r || { ok: false }); };
+    x.onerror = function () { if (cb) cb({ ok: false, error: 'network' }); };
+    x.send(data ? JSON.stringify(data) : null);
+  }
+  function toast(t) { var el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function () { el.style.display = 'none'; }, 3200); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  /* ---- what can be in the dock ---- */
+  var ICONS = {
+    settings: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M19.14 12.94a7.07 7.07 0 000-1.88l2.03-1.58a.5.5 0 00.12-.61l-1.92-3.32a.5.5 0 00-.59-.22l-2.39.96a7 7 0 00-1.62-.94l-.36-2.54A.48.48 0 0013.93 2h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.73 8.47a.49.49 0 00.12.61l2.03 1.58a7.3 7.3 0 000 1.88l-2.03 1.58a.5.5 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61zM12 15.6a3.6 3.6 0 110-7.2 3.6 3.6 0 010 7.2z"/></svg>',
+    allapps: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 4h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 10h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 16h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4z"/></svg>',
+    lghome: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
+    hdmi: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M3 7h18v6l-3 4H6l-3-4zm3 3v2h12v-2z"/></svg>'
+  };
+  var PALETTE = ['linear-gradient(140deg,#9361f0,#4c29b9)', 'linear-gradient(140deg,#28a9f0,#1264c7)', 'linear-gradient(140deg,#17336a,#080d1d)',
+    'linear-gradient(140deg,#17324a,#08131f)', 'linear-gradient(145deg,#25282e,#111318)', 'linear-gradient(140deg,#1f6d4a,#0c2a1d)',
+    'linear-gradient(140deg,#c4473d,#6d1c18)', 'linear-gradient(140deg,#d68b2a,#7a4410)'];
+  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+  function tileBg(entry) {
+    var c = cfg.tileColors[entry];
+    if (c) return 'linear-gradient(140deg,' + c + ',' + shade(c, -0.55) + ')';
+    return PALETTE[hash(entry) % PALETTE.length];
+  }
+  function shade(hex, k) {
+    var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    var f = function (v) { return Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k); };
+    return 'rgb(' + f(r) + ',' + f(g) + ',' + f(b) + ')';
+  }
+  function describe(entry) {
+    var kind = entry.split(':')[0], id = entry.slice(kind.length + 1);
+    if (kind === 'app') {
+      var a = (cat.apps || []).filter(function (x) { return x.id === id; })[0];
+      return a ? { entry: entry, kind: 'app', id: id, title: a.title, icon: cfg.icons[entry] || '/api/home/icon?id=' + encodeURIComponent(id) + '&v=' + BOOT } : null;
+    }
+    if (kind === 'dev') {
+      var d = (cat.devices || []).filter(function (x) { return x.id === id; })[0];
+      return d ? { entry: entry, kind: 'dev', id: id, title: d.name, icon: cfg.icons[entry], svg: ICONS.hdmi } : null;
+    }
+    var names = { settings: 'Settings', allapps: 'All apps', lghome: 'LG Home' };
+    return names[id] ? { entry: entry, kind: 'dock', id: id, title: names[id], svg: ICONS[id] } : null;
+  }
+
+  /* ---- drawing ---- */
+  function render() {
+    var root = document.documentElement;
+    root.className = ['st-' + cfg.style, 's-' + cfg.size, cfg.bar ? 'bar' : '', cfg.labels ? 'labels' : '', cfg.hint ? '' : 'nohint', 'pos-' + cfg.position, mode === 'down' ? 'down' : ''].join(' ');
+    root.style.setProperty('--accent', cfg.accent);
+
+    var want = cfg.apps.length ? cfg.apps : defaultApps(cat).slice(0, 6);
+    dock = want.map(describe).filter(Boolean);
+    row2 = (cfg.row2.length ? cfg.row2 : ['dock:settings', 'dock:allapps']).map(describe).filter(Boolean);
+    if (!row2.some(function (x) { return x.entry === 'dock:settings'; })) row2.push(describe('dock:settings'));
+
+    $('dock').innerHTML = dock.map(function (t, i) {
+      var inner = t.icon ? '<img src="' + esc(t.icon) + '" alt="">' : t.svg ? '<span style="width:46%;height:46%;display:block">' + t.svg + '</span>' : '<span class="txt">' + esc(t.title) + '</span>';
+      var bg = cfg.style === 'tiles' ? ' style="--bg:' + (cfg.tileColors[t.entry] ? tileBg(t.entry) : autoBg[t.entry] || tileBg(t.entry)) + '"' : '';
+      return '<button class="tile" data-row="0" data-i="' + i + '" data-entry="' + esc(t.entry) + '"' + bg + '>' + inner + '<span class="label">' + esc(t.title) + '</span></button>';
+    }).join('');
+    $('row2').innerHTML = row2.map(function (t, i) {
+      var pic = t.icon ? '<img src="' + esc(t.icon) + '" alt="">' : t.svg;
+      return '<button class="r2" data-row="1" data-i="' + i + '">' + pic + '<span>' + esc(t.title) + '</span></button>';
+    }).join('');
+    wallpaper();
+    widgets();
+    paintFocus();
+    if (cfg.style === 'tiles') dock.forEach(function (t) { if (t.icon && !cfg.tileColors[t.entry] && !autoBg[t.entry]) iconColour(t); });
+  }
+  /* a tile with no colour chosen takes its icon's: the average of its coloured pixels, made deep enough for white */
+  var autoBg = {};
+  function iconColour(t) {
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var c = document.createElement('canvas'); c.width = c.height = 24;
+        var g = c.getContext('2d'); g.drawImage(img, 0, 0, 24, 24);
+        var d = g.getImageData(0, 0, 24, 24).data, r = 0, gg = 0, b = 0, n = 0, br = 0, bg = 0, bb = 0, bn = 0;
+        for (var i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 128) continue;
+          var mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+          br += d[i]; bg += d[i + 1]; bb += d[i + 2]; bn++;
+          if (mx - mn < 40 || mx < 40) continue; /* greys, white and black say little */
+          r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++;
+        }
+        if (n < 12) { if (!bn) return; r = br; gg = bg; b = bb; n = bn; }
+        r /= n; gg /= n; b /= n;
+        var k = Math.min(1, 150 / Math.max(r, gg, b, 1));
+        var top = 'rgb(' + Math.round(r * k) + ',' + Math.round(gg * k) + ',' + Math.round(b * k) + ')';
+        var bot = 'rgb(' + Math.round(r * k * 0.35) + ',' + Math.round(gg * k * 0.35) + ',' + Math.round(b * k * 0.35) + ')';
+        autoBg[t.entry] = 'linear-gradient(140deg,' + top + ',' + bot + ')';
+        var el = document.querySelector('.tile[data-entry="' + t.entry + '"]');
+        if (el && cfg.style === 'tiles') el.style.setProperty('--bg', autoBg[t.entry]);
+      } catch (e) {}
+    };
+    img.src = t.icon;
+  }
+  function defaultApps(c) {
+    return (c.apps || []).filter(function (a) { return !/^(com\.webos\.|com\.lge\.|org\.webosbrew\.|com\.tvweb\.|com\.palm\.)/.test(a.id); }).map(function (a) { return 'app:' + a.id; });
+  }
+  function wallpaper() {
+    var w = cfg.wallpaper, el = $('wall');
+    el.style.backgroundImage = ''; el.style.background = '';
+    if (w.type === 'color' && /^#[0-9a-f]{6}$/i.test(w.value)) el.style.background = w.value;
+    else if (w.type === 'gradient') el.style.background = w.value === 'aurora' ? 'linear-gradient(135deg,#1b1446,#0f4c5c 55%,#14321f)' : w.value === 'sunset' ? 'linear-gradient(160deg,#2b1055,#d4418e 60%,#f8b26a)' : 'linear-gradient(160deg,#0d1b2a,#1b263b 50%,#415a77)';
+    else {
+      var src = w.type === 'upload' && w.value ? '/api/dock/wallpaper?id=' + encodeURIComponent(w.value) : '/api/home/wallpaper?slot=' + slot();
+      var img = new Image();
+      img.onload = function () { el.style.backgroundImage = 'url("' + src + '")'; hideBoot(); };
+      img.onerror = hideBoot;
+      img.src = src;
+      setTimeout(hideBoot, 3000);
+    }
+    if (w.type === 'color' || w.type === 'gradient') hideBoot();
+    $('shade').style.background = 'linear-gradient(0deg,rgba(0,0,0,' + (cfg.dim + 0.2) + '),rgba(0,0,0,' + cfg.dim + ') 60%)';
+  }
+  function slot() { var h = new Date().getHours(); return h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night'; }
+  function hideBoot() { var b = $('boot'); if (b.style.opacity === '0') return; b.style.opacity = '0'; setTimeout(function () { b.style.display = 'none'; }, 320); }
+
+  /* ---- clock, date, greeting, weather ---- */
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function two(n) { return n < 10 ? '0' + n : '' + n; }
+  function widgets() {
+    var w = $('widgets'), c = cfg.clock;
+    w.className = c.position + ' size-' + c.size;
+    var any = c.show || cfg.greeting || cfg.weather.show;
+    w.style.display = any ? 'flex' : 'none';
+    tick();
+    weather();
+  }
+  function tick() {
+    if (!cfg) return;
+    var d = new Date(), c = cfg.clock, h = d.getHours(), ampm = '';
+    if (c.format === '12') { ampm = h < 12 ? 'AM' : 'PM'; h = h % 12 || 12; }
+    $('time').style.display = c.show ? '' : 'none';
+    $('time').innerHTML = (c.format === '12' ? h : two(h)) + ':' + two(d.getMinutes()) + (c.seconds ? ':' + two(d.getSeconds()) : '') + (ampm ? '<small>' + ampm + '</small>' : '');
+    $('date').style.display = c.show && c.date ? '' : 'none';
+    $('date').textContent = DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+    var hr = d.getHours();
+    $('greet').style.display = cfg.greeting ? '' : 'none';
+    $('greet').textContent = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  }
+  var WX = {
+    sun: '<svg viewBox="0 0 24 24" fill="#ffd54a"><circle cx="12" cy="12" r="5"/><g stroke="#ffd54a" stroke-width="2" stroke-linecap="round"><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></g></svg>',
+    part: '<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="4" fill="#ffd54a"/><path fill="#e9eef5" d="M18 19H7a4 4 0 010-8 5.5 5.5 0 0110.6 1.5A3.3 3.3 0 0118 19z"/></svg>',
+    cloud: '<svg viewBox="0 0 24 24" fill="#e9eef5"><path d="M18 19H7a5 5 0 01-.6-9.96A6.5 6.5 0 0118.9 11 4 4 0 0118 19z"/></svg>',
+    fog: '<svg viewBox="0 0 24 24" stroke="#e9eef5" stroke-width="2" stroke-linecap="round"><path d="M4 9h16M2 13h18M5 17h14"/></svg>',
+    rain: '<svg viewBox="0 0 24 24"><path fill="#e9eef5" d="M18 15H7a5 5 0 01-.6-9.96A6.5 6.5 0 0118.9 7 4 4 0 0118 15z"/><path stroke="#6ec1ff" stroke-width="2" stroke-linecap="round" d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/></svg>',
+    snow: '<svg viewBox="0 0 24 24"><path fill="#e9eef5" d="M18 15H7a5 5 0 01-.6-9.96A6.5 6.5 0 0118.9 7 4 4 0 0118 15z"/><g fill="#fff"><circle cx="8" cy="19" r="1.3"/><circle cx="12" cy="21" r="1.3"/><circle cx="16" cy="19" r="1.3"/></g></svg>',
+    storm: '<svg viewBox="0 0 24 24"><path fill="#cfd6e0" d="M18 14H7a5 5 0 01-.6-9.96A6.5 6.5 0 0118.9 6 4 4 0 0118 14z"/><path fill="#ffd54a" d="M12 13l-3 6h3l-1 4 4-7h-3l1-3z"/></svg>'
+  };
+  function wxKind(code) { return code === 0 ? 'sun' : code <= 2 ? 'part' : code === 3 ? 'cloud' : code <= 48 ? 'fog' : code <= 67 || (code >= 80 && code <= 82) ? 'rain' : code <= 77 || code === 85 || code === 86 ? 'snow' : 'storm'; }
+  var wxAt = 0, wxKey = '';
+  function weather() {
+    var w = cfg.weather, el = $('weather');
+    if (!w.show || w.lat === null || w.lon === null) { el.style.display = 'none'; return; }
+    var key = w.lat + ',' + w.lon + ',' + w.units;
+    if (key === wxKey && Date.now() - wxAt < 30 * 60000) return;
+    wxKey = key; wxAt = Date.now();
+    var x = new XMLHttpRequest();
+    x.open('GET', 'https://api.open-meteo.com/v1/forecast?latitude=' + w.lat + '&longitude=' + w.lon + '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto' + (w.units === 'f' ? '&temperature_unit=fahrenheit' : ''));
+    x.onload = function () {
+      try {
+        var r = JSON.parse(x.responseText), cur = r.current, dl = r.daily;
+        el.innerHTML = WX[wxKind(cur.weather_code)] + '<span>' + Math.round(cur.temperature_2m) + '&deg;</span>' +
+          '<span class="place">' + Math.round(dl.temperature_2m_max[0]) + '&deg; / ' + Math.round(dl.temperature_2m_min[0]) + '&deg;' + (w.place ? ' &middot; ' + esc(w.place) : '') + '</span>';
+        el.style.display = 'flex';
+      } catch (e) { el.style.display = 'none'; }
+    };
+    x.onerror = function () { el.style.display = 'none'; wxAt = 0; };
+    x.send();
+  }
+
+  /* ---- focus and keys ---- */
+  function rowEls(r) { return document.querySelectorAll(r === 0 ? '.tile' : '.r2'); }
+  function paintFocus() {
+    var all = document.querySelectorAll('.tile,.r2,.g,.rc');
+    for (var i = 0; i < all.length; i++) all[i].classList.remove('focus');
+    var el;
+    if (mode === 'apps') el = document.querySelectorAll('.g')[focus.g || 0];
+    else if (mode === 'recents') el = document.querySelectorAll('.rc')[focus.rc || 0];
+    else el = rowEls(focus.row)[focus.i];
+    if (el) el.classList.add('focus');
+  }
+  function setMode(m) {
+    mode = m;
+    $('apps').className = 'sheet' + (m === 'apps' ? ' open' : '');
+    $('recents').className = 'sheet' + (m === 'recents' ? ' open' : '');
+    document.documentElement.classList.toggle('down', m === 'down');
+    paintFocus();
+  }
+  function move(d) {
+    if (mode === 'apps') {
+      var per = Math.max(1, Math.floor(($('grid').clientWidth + 26) / 226)), n = gridItems.length, g = focus.g || 0;
+      if (d === 'left') g = Math.max(0, g - 1); else if (d === 'right') g = Math.min(n - 1, g + 1);
+      else if (d === 'up') g = g - per >= 0 ? g - per : g; else if (d === 'down') g = Math.min(n - 1, g + per);
+      focus.g = g;
+      var el = document.querySelectorAll('.g')[g];
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+      return paintFocus();
+    }
+    if (mode === 'recents') {
+      var rc = focus.rc || 0;
+      if (d === 'left') focus.rc = Math.max(0, rc - 1);
+      else if (d === 'right') focus.rc = Math.min(recentItems.length - 1, rc + 1);
+      else if (d === 'down' && recentItems[rc]) closeRecent(recentItems[rc]);
+      else if (d === 'up') setMode('home');
+      return paintFocus();
+    }
+    var len = rowEls(focus.row).length;
+    if (d === 'left') focus.i = Math.max(0, focus.i - 1);
+    else if (d === 'right') focus.i = Math.min(len - 1, focus.i + 1);
+    else if (d === 'down' && focus.row === 0) { focus.row = 1; focus.i = Math.min(focus.i, row2.length - 1); setMode('down'); return; }
+    else if (d === 'up' && focus.row === 1) { focus.row = 0; focus.i = Math.min(focus.i, dock.length - 1); setMode('home'); return; }
+    paintFocus();
+  }
+  function activate(t) {
+    if (!t) return;
+    if (t.kind === 'dock') {
+      if (t.id === 'settings') { location.href = '/dock/settings?tv=1'; return; }
+      if (t.id === 'allapps') return openApps();
+      if (t.id === 'lghome') return go('lg', 'lg-home');
+    }
+    go(t.kind, t.id);
+  }
+  function go(kind, id) { api('/api/home/open', 'POST', { kind: kind, id: id }, function (r) { if (!r.ok) toast(r.error || 'Could not open it'); }); }
+  function ok() {
+    if (mode === 'apps') { var a = gridItems[focus.g || 0]; if (a) go('app', a.id); return; }
+    if (mode === 'recents') { var r = recentItems[focus.rc || 0]; if (r) api('/api/home/recents', 'POST', { action: 'open', id: r.id }); setMode('home'); return; }
+    activate(focus.row === 0 ? dock[focus.i] : row2[focus.i]);
+  }
+  function back() {
+    if (mode === 'apps' || mode === 'recents') return setMode(focus.row === 1 ? 'down' : 'home');
+    if (mode === 'down') { focus.row = 0; focus.i = Math.min(focus.i, dock.length - 1); return setMode('home'); }
+    openRecents();
+  }
+  function openApps() {
+    gridItems = (cat.apps || []).slice();
+    $('grid').innerHTML = gridItems.map(function (a, i) {
+      return '<button class="g" data-g="' + i + '"><img src="/api/home/icon?id=' + encodeURIComponent(a.id) + '&v=' + BOOT + '" alt=""><span>' + esc(a.title) + '</span></button>';
+    }).join('');
+    focus.g = 0; setMode('apps');
+  }
+  function openRecents() {
+    api('/api/home/recents', 'GET', null, function (r) {
+      recentItems = (r && r.apps) || [];
+      if (!recentItems.length) { toast('No apps open'); return; }
+      $('recentRow').innerHTML = recentItems.map(function (a, i) {
+        return '<button class="rc" data-rc="' + i + '"><img src="/api/home/recents/image?id=' + encodeURIComponent(a.id) + '&t=' + Date.now() + '" alt=""><div>' + esc(a.title || a.id) + '</div></button>';
+      }).join('');
+      focus.rc = 0; setMode('recents');
+    });
+  }
+  function closeRecent(a) {
+    api('/api/home/recents', 'POST', { action: 'close', id: a.id }, function () {
+      recentItems = recentItems.filter(function (x) { return x !== a; });
+      if (!recentItems.length) return setMode('home');
+      openRecentsKeep();
+    });
+  }
+  function openRecentsKeep() { var k = focus.rc || 0; openRecents(); focus.rc = Math.min(k, recentItems.length - 1); }
+
+  var lastKey = 0;
+  document.addEventListener('keydown', function (e) {
+    lastKey = Date.now();
+    var k = e.keyCode;
+    if (k === KEY.LEFT) move('left'); else if (k === KEY.RIGHT) move('right');
+    else if (k === KEY.UP) move('up'); else if (k === KEY.DOWN) move('down');
+    else if (k === KEY.OK) ok();
+    else if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) back();
+    else return;
+    e.preventDefault();
+    beat(true);
+  });
+  /* the Magic Remote's pointer: hover focuses, click opens */
+  document.addEventListener('mouseover', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    if (b.hasAttribute('data-g')) focus.g = +b.getAttribute('data-g');
+    else if (b.hasAttribute('data-rc')) focus.rc = +b.getAttribute('data-rc');
+    else if (b.hasAttribute('data-row')) { var r = +b.getAttribute('data-row'); if (r !== focus.row) { focus.row = r; setMode(r ? 'down' : 'home'); } focus.i = +b.getAttribute('data-i'); }
+    paintFocus();
+  });
+  document.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('button') : null; if (b) ok(); });
+
+  /* Glasshouse watches Home through these beats (every 4 s) to keep it in front */
+  function beat(key) { api('/api/home/beat', 'POST', { focused: document.hasFocus(), visible: document.visibilityState || 'visible', key: !!key }); }
+  setInterval(function () { beat(false); }, 4000);
+
+  function load(first) {
+    api('/api/dock/config', 'GET', null, function (r) {
+      if (!r.ok) { cfg = cfg || {}; return; }
+      var next = JSON.stringify(r.config);
+      api('/api/home/catalogue', 'GET', null, function (c) {
+        if (!c.ok) return;
+        var catKey = JSON.stringify((c.apps || []).map(function (a) { return a.id; })) + JSON.stringify((c.devices || []).map(function (d) { return d.id; }));
+        if (!first && next === load.cfgKey && catKey === load.catKey) return;
+        load.cfgKey = next; load.catKey = catKey;
+        cfg = r.config; cat = c;
+        if (mode === 'home' || mode === 'down' || first) render();
+      });
+    });
+  }
+  load(true);
+  setInterval(load, 5000);      /* settings changed from the phone show up within seconds */
+  setInterval(tick, 1000);
+  setInterval(function () { if (cfg) { weather(); var s = slot(); if (s !== load.slot && cfg.wallpaper.type === 'glasshouse') { load.slot = s; wallpaper(); } } }, 60000);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { setMode('home'); focus = { row: 0, i: focus.i }; load(true); } });
+})();
+</script>
+</body>
+</html>

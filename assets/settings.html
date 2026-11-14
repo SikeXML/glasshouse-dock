@@ -1,0 +1,321 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dock settings</title>
+<!-- Glasshouse Dock settings: on the TV (arrow keys, OK, Back) and on a phone
+     (http://<tv>:8080/dock/settings). Every change is saved at once. ES5. -->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#0b0e15;color:#eef1f6;font-family:"Outfit","Manrope",Arial,sans-serif}
+body{padding:28px 18px 80px;max-width:1100px;margin:0 auto}
+.tv body,html.tv body{padding:60px 90px 120px;font-size:24px;max-width:none}
+h1{font-size:32px;font-weight:600;margin:0 0 6px}
+.sub{opacity:.6;margin:0 0 26px;font-size:17px}
+.tv .sub{font-size:22px}
+section{background:#141924;border-radius:20px;padding:22px 24px;margin:0 0 20px}
+h2{font-size:21px;font-weight:600;margin:0 0 16px;opacity:.9}
+.tv h2{font-size:28px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap}
+.row:first-of-type{border-top:0}
+.row label{font-size:17px;opacity:.9}
+.tv .row label{font-size:23px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+button,input,select{font:inherit;color:inherit;outline:none}
+.seg button,.btn{background:#222a39;border:0;border-radius:12px;padding:10px 16px;font-size:16px;cursor:pointer;transition:background .12s,box-shadow .12s}
+.tv .seg button,.tv .btn{font-size:21px;padding:13px 20px}
+.seg button.on{background:#e9eef6;color:#0b0e15;font-weight:600}
+input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14px;min-width:240px}
+.focus,:focus{box-shadow:0 0 0 3px #fff!important}
+#dockList,#row2List{display:flex;flex-wrap:wrap;gap:12px}
+.item{width:190px;background:#1c2330;border-radius:16px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.tv .item{width:250px}
+.item img,.item .ph{width:64px;height:64px;object-fit:contain;border-radius:12px}
+.item .ph{display:flex;align-items:center;justify-content:center;background:#2b3446;font-size:13px}
+.item .name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tv .item .name{font-size:18px}
+.item .tools{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.item .tools button{background:#2b3446;border:0;border-radius:9px;width:32px;height:32px;cursor:pointer;font-size:16px}
+.tv .item .tools button{width:44px;height:42px;font-size:20px}
+.sw{width:22px;height:22px;border-radius:50%;display:inline-block;border:2px solid rgba(255,255,255,.4);vertical-align:middle}
+#pool{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+#pool button{background:#1c2330;border:0;border-radius:12px;padding:8px 12px 8px 8px;display:flex;align-items:center;gap:10px;cursor:pointer;font-size:15px}
+.tv #pool button{font-size:19px}
+#pool img{width:34px;height:34px;object-fit:contain}
+#status{position:fixed;right:20px;bottom:20px;background:#1f8a4c;padding:10px 18px;border-radius:12px;opacity:0;transition:opacity .3s;font-size:16px}
+#phone{font-size:18px;opacity:.75}
+.colors{display:flex;gap:8px;flex-wrap:wrap}
+.colors button{width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.25);padding:0;cursor:pointer}
+.colors button.on{border-color:#fff;transform:scale(1.12)}
+#places button{display:block;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>Dock settings</h1>
+<p class="sub" id="phone"></p>
+
+<section>
+  <h2>Dock</h2>
+  <div id="dockList"></div>
+  <div class="row"><label>Add to the dock (up to 8)</label></div>
+  <div id="pool"></div>
+</section>
+
+<section>
+  <h2>Look</h2>
+  <div class="row"><label>Style</label><div class="seg" data-k="style" data-v="tiles:Colour tiles,glass:Glass,clear:Icons only"></div></div>
+  <div class="row"><label>Size</label><div class="seg" data-k="size" data-v="small:Small,medium:Medium,large:Large"></div></div>
+  <div class="row"><label>Position</label><div class="seg" data-k="position" data-v="bottom:Bottom,middle:Middle"></div></div>
+  <div class="row"><label>Frosted bar behind the dock</label><div class="seg" data-k="bar" data-v="true:On,false:Off"></div></div>
+  <div class="row"><label>Names under the icons</label><div class="seg" data-k="labels" data-v="true:Always,false:When focused"></div></div>
+  <div class="row"><label>Focus colour</label><div class="colors" id="accent"></div></div>
+  <div class="row"><label>"More" hint under the dock</label><div class="seg" data-k="hint" data-v="true:Show,false:Hide"></div></div>
+</section>
+
+<section>
+  <h2>Background</h2>
+  <div class="row"><label>Picture</label><div class="seg" id="wallType"></div></div>
+  <div class="row" id="wallColors" style="display:none"><label>Colour</label><div class="colors" id="wallColor"></div></div>
+  <div class="row" id="wallGrads" style="display:none"><label>Gradient</label><div class="seg" id="wallGrad"></div></div>
+  <div class="row" id="wallUpload" style="display:none"><label>Your own picture (phone or computer)</label><input type="file" id="file" accept="image/jpeg,image/png,image/webp"></div>
+  <div class="row"><label>Darken</label><div class="seg" data-k="dim" data-v="0:None,0.15:A little,0.3:More,0.5:A lot"></div></div>
+</section>
+
+<section>
+  <h2>Clock</h2>
+  <div class="row"><label>Clock</label><div class="seg" data-k="clock.show" data-v="true:Show,false:Hide"></div></div>
+  <div class="row"><label>Where</label><div class="seg" data-k="clock.position" data-v="top-left:Top left,top-center:Top,top-right:Top right,center:Centre,bottom-right:Above the dock"></div></div>
+  <div class="row"><label>Format</label><div class="seg" data-k="clock.format" data-v="24:24-hour,12:12-hour"></div></div>
+  <div class="row"><label>Size</label><div class="seg" data-k="clock.size" data-v="small:Small,medium:Medium,large:Large,huge:Huge"></div></div>
+  <div class="row"><label>Seconds</label><div class="seg" data-k="clock.seconds" data-v="true:Show,false:Hide"></div></div>
+  <div class="row"><label>Date</label><div class="seg" data-k="clock.date" data-v="true:Show,false:Hide"></div></div>
+  <div class="row"><label>Greeting ("Good evening")</label><div class="seg" data-k="greeting" data-v="true:Show,false:Hide"></div></div>
+</section>
+
+<section>
+  <h2>Weather</h2>
+  <div class="row"><label>Weather</label><div class="seg" data-k="weather.show" data-v="true:Show,false:Hide"></div></div>
+  <div class="row"><label>Units</label><div class="seg" data-k="weather.units" data-v="c:&deg;C,f:&deg;F"></div></div>
+  <div class="row"><label>City <span id="placeNow" style="opacity:.6"></span></label><div><input type="text" id="place" placeholder="Search a city"> <button class="btn" id="findPlace">Find</button><div id="places"></div></div></div>
+  <div class="row"><label style="opacity:.55;font-size:14px">Forecasts from Open-Meteo.com, free and with no account. Only the city's position is sent.</label></div>
+</section>
+
+<section>
+  <h2>Start-up</h2>
+  <div class="row"><label>Start the TV on Home, not on the last HDMI input<br><span style="opacity:.55;font-size:14px">Stops a console from waking up through HDMI-CEC when the TV turns on</span></label><div class="seg" data-k="startOnHome" data-v="true:On,false:Off"></div></div>
+</section>
+
+<div id="status">Saved</div>
+<script>
+(function () {
+  'use strict';
+  var tv = /[?&]tv=1/.test(location.search);
+  if (tv) document.documentElement.className = 'tv';
+  var START = Date.now(), cfg = null, cat = { apps: [], devices: [] };
+  var $ = function (id) { return document.getElementById(id); };
+  var COLORS = ['', '#9361f0', '#28a9f0', '#17336a', '#1f6d4a', '#c4473d', '#d68b2a', '#e2407a', '#3a3f4b', '#101411', '#ffffff'];
+  var ACCENTS = ['#ffffff', '#ffd54a', '#6ec1ff', '#9361f0', '#3ce08a', '#ff6b6b'];
+
+  function api(path, method, data, cb, raw) {
+    var x = new XMLHttpRequest();
+    x.open(method, path);
+    if (method === 'POST' && !raw) x.setRequestHeader('Content-Type', 'application/json');
+    x.onload = function () { var r = null; try { r = JSON.parse(x.responseText); } catch (e) {} if (cb) cb(r || { ok: false }); };
+    x.onerror = function () { if (cb) cb({ ok: false }); };
+    x.send(raw ? data : data ? JSON.stringify(data) : null);
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function saved() { var s = $('status'); s.style.opacity = 1; clearTimeout(saved.t); saved.t = setTimeout(function () { s.style.opacity = 0; }, 1200); }
+  function save(change) {
+    api('/api/dock/config', 'POST', change, function (r) { if (r.ok) { cfg = r.config; draw(); saved(); } });
+  }
+  function get(k) { var o = cfg; k.split('.').forEach(function (p) { o = o == null ? o : o[p]; }); return o; }
+  function setObj(k, v) { var parts = k.split('.'), out = {}, o = out; parts.forEach(function (p, i) { if (i === parts.length - 1) o[p] = v; else { o[p] = {}; o = o[p]; } }); return out; }
+  function parse(v) { return v === 'true' ? true : v === 'false' ? false : /^[0-9.]+$/.test(v) && v.indexOf('.') >= 0 ? Number(v) : v === '0' ? 0 : v; }
+
+  function title(entry) {
+    var kind = entry.split(':')[0], id = entry.slice(kind.length + 1);
+    if (kind === 'app') { var a = cat.apps.filter(function (x) { return x.id === id; })[0]; return a ? a.title : id; }
+    if (kind === 'dev') { var d = cat.devices.filter(function (x) { return x.id === id; })[0]; return d ? d.name : id; }
+    return { settings: 'Settings', allapps: 'All apps', lghome: 'LG Home' }[id] || id;
+  }
+  function pic(entry) {
+    var kind = entry.split(':')[0], id = entry.slice(kind.length + 1);
+    if (cfg && cfg.icons[entry]) return '<img src="' + esc(cfg.icons[entry]) + '" alt="">';
+    return kind === 'app' ? '<img src="/api/home/icon?id=' + encodeURIComponent(id) + '&v=' + START + '" alt="">' : '<div class="ph">' + (kind === 'dev' ? 'HDMI' : '&#9881;') + '</div>';
+  }
+  function dockEntries() { return cfg.apps.length ? cfg.apps.slice() : cat.apps.filter(function (a) { return !/^(com\.webos\.|com\.lge\.|org\.webosbrew\.|com\.tvweb\.|com\.palm\.)/.test(a.id); }).slice(0, 6).map(function (a) { return 'app:' + a.id; }); }
+
+  function draw() {
+    var list = dockEntries();
+    $('dockList').innerHTML = list.map(function (e, i) {
+      var c = cfg.tileColors[e] || '';
+      return '<div class="item">' + pic(e) + '<div class="name">' + esc(title(e)) + '</div><div class="tools">' +
+        '<button data-act="left" data-i="' + i + '" title="Move left">&#9664;</button>' +
+        '<button data-act="color" data-i="' + i + '" title="Tile colour"><span class="sw" style="background:' + (c || 'linear-gradient(135deg,#9361f0,#28a9f0)') + '"></span></button>' +
+        '<button data-act="right" data-i="' + i + '" title="Move right">&#9654;</button>' +
+        '<button data-act="icon" data-i="' + i + '" title="Your own icon">&#9998;</button>' +
+        '<button data-act="del" data-i="' + i + '" title="Remove">&#10005;</button></div></div>';
+    }).join('');
+    var inDock = {}; list.forEach(function (e) { inDock[e] = 1; });
+    var pool = cat.apps.map(function (a) { return 'app:' + a.id; }).concat(cat.devices.filter(function (d) { return !d.unused; }).map(function (d) { return 'dev:' + d.id; }));
+    $('pool').innerHTML = list.length >= 8 ? '<span style="opacity:.6">The dock is full. Remove one to add another.</span>' :
+      pool.filter(function (e) { return !inDock[e]; }).map(function (e) { return '<button data-add="' + esc(e) + '">' + pic(e) + esc(title(e)) + '</button>'; }).join('');
+
+    Array.prototype.forEach.call(document.querySelectorAll('.seg[data-k]'), function (s) {
+      var k = s.getAttribute('data-k'), cur = String(get(k));
+      s.innerHTML = s.getAttribute('data-v').split(',').map(function (p) {
+        var kv = p.split(':'), v = kv[0];
+        return '<button data-k="' + k + '" data-val="' + v + '" class="' + (String(parse(v)) === cur ? 'on' : '') + '">' + kv.slice(1).join(':') + '</button>';
+      }).join('');
+    });
+    $('accent').innerHTML = ACCENTS.map(function (c) { return '<button data-accent="' + c + '" class="' + (cfg.accent === c ? 'on' : '') + '" style="background:' + c + '"></button>'; }).join('');
+    var wt = cfg.wallpaper.type;
+    $('wallType').innerHTML = [['glasshouse', 'Glasshouse'], ['upload', 'My picture'], ['color', 'Colour'], ['gradient', 'Gradient']].map(function (p) {
+      return '<button data-wall="' + p[0] + '" class="' + (wt === p[0] ? 'on' : '') + '">' + p[1] + '</button>';
+    }).join('');
+    $('wallColors').style.display = wt === 'color' ? '' : 'none';
+    $('wallGrads').style.display = wt === 'gradient' ? '' : 'none';
+    $('wallUpload').style.display = wt === 'upload' ? '' : 'none';
+    $('wallColor').innerHTML = ['#080b12', '#14213d', '#1b4332', '#3c1642', '#5c2018', '#2b2d42'].map(function (c) {
+      return '<button data-wcolor="' + c + '" class="' + (cfg.wallpaper.value === c ? 'on' : '') + '" style="background:' + c + '"></button>';
+    }).join('');
+    $('wallGrad').innerHTML = [['dusk', 'Dusk'], ['aurora', 'Aurora'], ['sunset', 'Sunset']].map(function (p) {
+      return '<button data-wgrad="' + p[0] + '" class="' + (cfg.wallpaper.value === p[0] ? 'on' : '') + '">' + p[1] + '</button>';
+    }).join('');
+    $('placeNow').textContent = cfg.weather.place ? '(' + cfg.weather.place + ')' : '(none yet)';
+    refocus();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    var list = dockEntries(), i = +b.getAttribute('data-i');
+    if (b.hasAttribute('data-k')) return save(setObj(b.getAttribute('data-k'), parse(b.getAttribute('data-val'))));
+    if (b.hasAttribute('data-add')) { list.push(b.getAttribute('data-add')); return save({ apps: list }); }
+    var act = b.getAttribute('data-act');
+    if (act === 'left' && i > 0) { var t = list[i - 1]; list[i - 1] = list[i]; list[i] = t; return save({ apps: list }); }
+    if (act === 'right' && i < list.length - 1) { var t2 = list[i + 1]; list[i + 1] = list[i]; list[i] = t2; return save({ apps: list }); }
+    if (act === 'icon') {
+      var u = window.prompt('Address of a picture for ' + title(list[i]) + ' (https://... or /path on the TV). Empty puts back the app icon.', cfg.icons[list[i]] || '');
+      if (u === null) return;
+      var ic = {}; Object.keys(cfg.icons).forEach(function (k) { ic[k] = cfg.icons[k]; });
+      if (u.trim()) ic[list[i]] = u.trim(); else delete ic[list[i]];
+      return api('/api/dock/config', 'POST', { icons: null }, function () { save({ icons: ic }); });
+    }
+    if (act === 'del') { list.splice(i, 1); return save({ apps: list.length ? list : [] }); }
+    if (act === 'color') {
+      var cur = cfg.tileColors[list[i]] || '', next = COLORS[(COLORS.indexOf(cur) + 1) % COLORS.length], tc = {};
+      Object.keys(cfg.tileColors).forEach(function (k) { tc[k] = cfg.tileColors[k]; });
+      if (next) tc[list[i]] = next; else delete tc[list[i]];
+      cfg.tileColors = tc;
+      return api('/api/dock/config', 'POST', { tileColors: null }, function () { save({ tileColors: tc }); });
+    }
+    if (b.hasAttribute('data-accent')) return save({ accent: b.getAttribute('data-accent') });
+    if (b.hasAttribute('data-wall')) {
+      var type = b.getAttribute('data-wall'), val = type === 'color' ? '#080b12' : type === 'gradient' ? 'dusk' : type === 'upload' ? (cfg.wallpaper.type === 'upload' ? cfg.wallpaper.value : '') : '';
+      return save({ wallpaper: { type: type, value: val } });
+    }
+    if (b.hasAttribute('data-wcolor')) return save({ wallpaper: { type: 'color', value: b.getAttribute('data-wcolor') } });
+    if (b.hasAttribute('data-wgrad')) return save({ wallpaper: { type: 'gradient', value: b.getAttribute('data-wgrad') } });
+    if (b.id === 'findPlace') return findPlace();
+    if (b.hasAttribute('data-lat')) {
+      $('places').innerHTML = '';
+      return save({ weather: { show: true, place: b.getAttribute('data-name'), lat: +b.getAttribute('data-lat'), lon: +b.getAttribute('data-lon') } });
+    }
+  });
+
+  function findPlace() {
+    var q = $('place').value.trim();
+    if (!q) return;
+    var x = new XMLHttpRequest();
+    x.open('GET', 'https://geocoding-api.open-meteo.com/v1/search?count=5&name=' + encodeURIComponent(q));
+    x.onload = function () {
+      var r = []; try { r = JSON.parse(x.responseText).results || []; } catch (e) {}
+      $('places').innerHTML = r.length ? r.map(function (p) {
+        var name = p.name + (p.admin1 ? ', ' + p.admin1 : '') + (p.country ? ', ' + p.country : '');
+        return '<button class="btn" data-lat="' + p.latitude + '" data-lon="' + p.longitude + '" data-name="' + esc(p.name) + '">' + esc(name) + '</button>';
+      }).join('') : '<span style="opacity:.6">No city found</span>';
+      refocus();
+    };
+    x.send();
+  }
+  $('place').addEventListener('keydown', function (e) { if (e.keyCode === 13) { e.preventDefault(); findPlace(); } });
+
+  $('file').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    if (f.size > 15 * 1024 * 1024) { alert('Pictures up to 15 MB'); return; }
+    var rd = new FileReader();
+    rd.onload = function () {
+      api('/api/dock/wallpaper', 'POST', new Uint8Array(rd.result), function (r) {
+        if (!r.ok) { alert(r.error || 'Upload failed'); return; }
+        api('/api/dock/config', 'GET', null, function (c) { cfg = c.config; draw(); saved(); });
+      }, true);
+    };
+    rd.readAsArrayBuffer(f);
+  });
+
+  /* ---- the remote: arrows move to the nearest control that way, OK presses it, Back leaves ---- */
+  var current = null;
+  function controls() { return Array.prototype.filter.call(document.querySelectorAll('button,input'), function (el) { return el.offsetParent !== null; }); }
+  function refocus() {
+    if (!tv) return;
+    var c = controls();
+    if (!current || c.indexOf(current) < 0) {
+      var same = current && c.filter(function (el) { return el.getAttribute('data-i') === current.getAttribute('data-i') && el.getAttribute('data-act') === current.getAttribute('data-act') && el.getAttribute('data-k') === current.getAttribute('data-k') && el.getAttribute('data-val') === current.getAttribute('data-val'); })[0];
+      setCurrent(same || c[0]);
+    } else setCurrent(current);
+  }
+  function setCurrent(el) {
+    if (current) current.classList.remove('focus');
+    current = el;
+    if (!el) return;
+    el.classList.add('focus');
+    if (el.tagName === 'INPUT') el.focus(); else if (document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur();
+    var r = el.getBoundingClientRect();
+    if (r.top < 80 || r.bottom > innerHeight - 80) window.scrollBy(0, r.top - innerHeight / 2);
+  }
+  function nearest(dir) {
+    if (!current) return controls()[0];
+    var a = current.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2, best = null, bestD = 1e9;
+    controls().forEach(function (el) {
+      if (el === current) return;
+      var b = el.getBoundingClientRect(), bx = b.left + b.width / 2, by = b.top + b.height / 2, dx = bx - ax, dy = by - ay;
+      var ok = dir === 'left' ? dx < -4 && Math.abs(dy) < a.height : dir === 'right' ? dx > 4 && Math.abs(dy) < a.height : dir === 'up' ? dy < -4 : dy > 4;
+      if (!ok) return;
+      var d = dir === 'left' || dir === 'right' ? Math.abs(dx) + Math.abs(dy) * 4 : Math.abs(dy) * 2 + Math.abs(dx);
+      if (d < bestD) { bestD = d; best = el; }
+    });
+    return best;
+  }
+  document.addEventListener('keydown', function (e) {
+    if (!tv) return;
+    var k = e.keyCode, typing = document.activeElement && document.activeElement.tagName === 'INPUT';
+    var dir = k === 37 ? 'left' : k === 39 ? 'right' : k === 38 ? 'up' : k === 40 ? 'down' : null;
+    if (dir && !(typing && (dir === 'left' || dir === 'right'))) { var n = nearest(dir); if (n) setCurrent(n); e.preventDefault(); return; }
+    if (k === 13 && current && current.tagName === 'BUTTON') { current.click(); e.preventDefault(); return; }
+    if (k === 461 || k === 27) { e.preventDefault(); location.href = '/assets/home.html'; }
+  });
+
+  if (!tv) $('phone').textContent = 'Changes show on the TV within a few seconds.';
+
+  /* On the TV this page stands in for Home: Glasshouse gives Home back to LG
+     when Home stops beating, so it beats here too. */
+  function beat() { api('/api/home/beat', 'POST', { focused: document.hasFocus(), visible: document.visibilityState || 'visible', key: true }); }
+  if (tv) { beat(); setInterval(beat, 4000); document.addEventListener('keydown', beat); }
+
+  api('/api/home/catalogue', 'GET', null, function (c) {
+    if (c.ok) cat = { apps: c.apps || [], devices: c.devices || [] };
+    api('/api/dock/config', 'GET', null, function (r) {
+      if (!r.ok) return;
+      cfg = r.config;
+      if (tv) $('phone').textContent = 'Easier on a phone: open http://' + (r.lan || location.hostname) + ':8080/dock/settings on the same Wi-Fi. Back returns to Home.';
+      draw();
+    });
+  });
+})();
+</script>
+</body>
+</html>
