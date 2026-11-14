@@ -21,21 +21,22 @@ var url = require('url');
 var ROOT = '/var/lib/tvweb/dock';
 var CONFIG = path.join(ROOT, 'config.json');
 var WALLS = path.join(ROOT, 'wallpapers');
+var GALLERY = path.join(ROOT, 'gallery');   // public-domain paintings shipped with the dock
 var ASSETS = path.join(ROOT, 'assets');
 var MAX_UPLOAD = 15 * 1024 * 1024;
 
 var DEFAULTS = {
   apps: [],                 // dock entries: "app:<id>" or "dev:<id>", up to 8; empty = the first six apps
   row2: ['dock:settings', 'dock:allapps', 'dock:lghome'],
-  style: 'tiles',           // tiles | glass | clear
+  style: 'tiles',           // tiles | glass | liquid | clear
   tileColors: {},           // entry -> "#rrggbb" (tiles style); none = the icon's own colour
   icons: {},                // entry -> a picture of your own: "/path" on the TV or an https:// address
   size: 'medium',           // small | medium | large
   bar: true,                // the frosted bar behind the dock
-  labels: false,            // names under the tiles
+  labels: false,            // names under the tiles: true, 'focus' (only the focused one) or false
   accent: '#ffffff',        // the focus ring
   position: 'bottom',       // bottom | middle
-  wallpaper: { type: 'glasshouse', value: '' },  // glasshouse | upload | color | gradient
+  wallpaper: { type: 'glasshouse', value: '', every: 30, caption: true },  // glasshouse | upload | gallery | color | gradient; gallery: a painting's id or "rotate"
   dim: 0.15,
   clock: { show: true, position: 'top-right', format: '24', seconds: false, date: true, size: 'medium' },
   weather: { show: false, place: '', lat: null, lon: null, units: 'c' },
@@ -82,7 +83,7 @@ function clean(c) {
   var o = merge(DEFAULTS, c);
   o.apps = entries(o.apps, 8);
   o.row2 = entries(o.row2, 6);
-  o.style = oneOf(o.style, ['tiles', 'glass', 'clear'], 'tiles');
+  o.style = oneOf(o.style, ['tiles', 'glass', 'liquid', 'clear'], 'tiles');
   var tc = {};
   Object.keys(o.tileColors || {}).forEach(function (k) { if (ENTRY.test(k) && HEX.test(o.tileColors[k])) tc[k] = o.tileColors[k]; });
   o.tileColors = tc;
@@ -90,11 +91,14 @@ function clean(c) {
   Object.keys(o.icons || {}).forEach(function (k) { var v = o.icons[k]; if (ENTRY.test(k) && typeof v === 'string' && /^(\/|https:\/\/)[^"'<>\s\\]{1,300}$/.test(v)) ic[k] = v; });
   o.icons = ic;
   o.size = oneOf(o.size, ['small', 'medium', 'large'], 'medium');
-  o.bar = !!o.bar; o.labels = !!o.labels; o.greeting = !!o.greeting; o.hint = !!o.hint; o.startOnHome = !!o.startOnHome;
+  o.bar = !!o.bar; o.labels = o.labels === 'focus' ? 'focus' : !!o.labels; o.greeting = !!o.greeting; o.hint = !!o.hint; o.startOnHome = !!o.startOnHome;
   o.accent = HEX.test(o.accent) ? o.accent : '#ffffff';
   o.position = oneOf(o.position, ['bottom', 'middle'], 'bottom');
   var w = o.wallpaper || {};
-  o.wallpaper = { type: oneOf(w.type, ['glasshouse', 'upload', 'color', 'gradient'], 'glasshouse'), value: String(w.value || '').slice(0, 200) };
+  o.wallpaper = {
+    type: oneOf(w.type, ['glasshouse', 'upload', 'gallery', 'color', 'gradient'], 'glasshouse'), value: String(w.value || '').slice(0, 200),
+    every: [10, 30, 60].indexOf(Number(w.every)) >= 0 ? Number(w.every) : 30, caption: w.caption !== false
+  };
   o.dim = num(o.dim, 0, 0.7, 0.15);
   var k = o.clock || {};
   o.clock = {
@@ -180,6 +184,24 @@ function handle(req, res) {
         var c = read(); c.wallpaper = { type: 'upload', value: id }; write(clean(c));
         send(res, 200, { ok: true, id: id });
       });
+    });
+    return true;
+  }
+  if (p === '/api/dock/gallery') {
+    fs.readFile(path.join(GALLERY, 'gallery.json'), 'utf8', function (e, s) {
+      var list = [];
+      try { list = JSON.parse(s); } catch (x) {}
+      send(res, 200, { ok: true, paintings: list });
+    });
+    return true;
+  }
+  if (p === '/api/dock/gallery/img') {
+    var gid = String(u.query.id || ''), thumb = u.query.thumb === '1';
+    if (!/^[a-z0-9-]{1,80}\.jpg$/.test(gid)) { send(res, 400, { ok: false }); return true; }
+    fs.readFile(path.join(GALLERY, thumb ? 'thumbs' : '', gid), function (e, b) {
+      if (e) return send(res, 404, { ok: false });
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': b.length, 'Cache-Control': 'max-age=31536000' });
+      res.end(b);
     });
     return true;
   }

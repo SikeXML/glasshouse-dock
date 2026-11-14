@@ -10,7 +10,9 @@
 *{box-sizing:border-box}
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#080b12;color:#fff;font-family:"Outfit","Manrope",Arial,sans-serif}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outline:none;padding:0}
-#wall{position:absolute;inset:-1%;background:#080b12 center/cover no-repeat;transition:opacity .6s}
+#wall{position:absolute;inset:-1%;background:#080b12 center/cover no-repeat;transition:background-image 1.2s ease}
+#caption{position:absolute;left:5%;bottom:3.4%;font-size:19px;line-height:1.35;opacity:0;transition:opacity .6s;text-shadow:0 1px 8px rgba(0,0,0,.8);pointer-events:none;max-width:40%}
+#caption b{font-weight:600}
 #shade{position:absolute;inset:0;pointer-events:none}
 #boot{position:absolute;inset:0;background:#000;z-index:50;transition:opacity .3s;pointer-events:none}
 
@@ -40,13 +42,21 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
 .tile .txt{font-size:calc(var(--h) * .16);font-weight:600;text-align:center;padding:0 8px;line-height:1.15}
 .tile .label{position:absolute;left:0;right:0;top:calc(100% + 10px);text-align:center;font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .16s;text-shadow:0 1px 8px rgba(0,0,0,.7)}
 .labels .tile .label{opacity:.85}
-.tile.focus .label{opacity:1}
+.labels-focus .tile.focus .label{opacity:1}
 .s-small{--w:170px;--h:104px;--icon:72px;--r:16px;--gap:12px;--pad:12px}
 .s-medium{--w:246px;--h:148px;--icon:106px;--r:20px;--gap:16px;--pad:18px}
 .s-large{--w:300px;--h:184px;--icon:132px;--r:24px;--gap:20px;--pad:20px}
 /* tiles: a colour each, as on an Apple TV */
 .st-tiles .tile{background:var(--bg,linear-gradient(145deg,#262a34,#10131a));box-shadow:0 6px 14px rgba(0,0,0,.25)}
 .st-tiles .tile.focus{transform:scale(1.08);box-shadow:0 0 0 4px var(--accent),0 18px 36px rgba(0,0,0,.45);z-index:3}
+/* liquid glass: white glyphs straight on the picture, a little see-through, no tiles or bar */
+.st-liquid #dock{background:none!important;border:0!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.st-liquid .tile img{width:calc(var(--icon) * .9);height:calc(var(--icon) * .9);border-radius:0;opacity:.82;transition:opacity .16s,transform .16s;-webkit-filter:grayscale(1) brightness(1.75) drop-shadow(0 3px 10px rgba(0,0,0,.35));filter:grayscale(1) brightness(1.75) drop-shadow(0 3px 10px rgba(0,0,0,.35))}
+.st-liquid .tile.mono img{-webkit-filter:drop-shadow(0 3px 10px rgba(0,0,0,.35));filter:drop-shadow(0 3px 10px rgba(0,0,0,.35))}
+.st-liquid .tile.focus{transform:scale(1.12)}
+.st-liquid .tile.focus img{opacity:1}
+.st-liquid .tile.focus::after{content:'';position:absolute;left:50%;bottom:2px;width:60px;height:4px;margin-left:-30px;border-radius:2px;background:var(--accent);box-shadow:0 1px 6px rgba(0,0,0,.4)}
+.st-liquid .r2{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18)}
 /* glass: frosted squares */
 .st-glass .tile{background:rgba(255,255,255,.13);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .st-glass .tile img{width:calc(var(--icon) * .86);height:calc(var(--icon) * .86);opacity:.85;transition:opacity .16s}
@@ -90,7 +100,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
 </style>
 </head>
 <body>
-<div id="wall"></div><div id="shade"></div>
+<div id="wall"></div><div id="shade"></div><div id="caption"></div>
 <div id="widgets"><div id="greet"></div><div id="time"></div><div id="date"></div><div id="weather"></div></div>
 <div id="dockwrap"><div id="dock"></div></div>
 <div id="row2"></div>
@@ -156,7 +166,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
   /* ---- drawing ---- */
   function render() {
     var root = document.documentElement;
-    root.className = ['st-' + cfg.style, 's-' + cfg.size, cfg.bar ? 'bar' : '', cfg.labels ? 'labels' : '', cfg.hint ? '' : 'nohint', 'pos-' + cfg.position, mode === 'down' ? 'down' : ''].join(' ');
+    root.className = ['st-' + cfg.style, 's-' + cfg.size, cfg.bar ? 'bar' : '', cfg.labels === true ? 'labels' : cfg.labels === 'focus' ? 'labels-focus' : '', cfg.hint ? '' : 'nohint', 'pos-' + cfg.position, mode === 'down' ? 'down' : ''].join(' ');
     root.style.setProperty('--accent', cfg.accent);
 
     var want = cfg.apps.length ? cfg.apps : defaultApps(cat).slice(0, 6);
@@ -211,18 +221,49 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
   }
   function wallpaper() {
     var w = cfg.wallpaper, el = $('wall');
-    el.style.backgroundImage = ''; el.style.background = '';
+    if (w.type === 'color' || w.type === 'gradient') { el.style.backgroundImage = ''; el.style.background = ''; show.src = ''; }
     if (w.type === 'color' && /^#[0-9a-f]{6}$/i.test(w.value)) el.style.background = w.value;
     else if (w.type === 'gradient') el.style.background = w.value === 'aurora' ? 'linear-gradient(135deg,#1b1446,#0f4c5c 55%,#14321f)' : w.value === 'sunset' ? 'linear-gradient(160deg,#2b1055,#d4418e 60%,#f8b26a)' : 'linear-gradient(160deg,#0d1b2a,#1b263b 50%,#415a77)';
-    else {
-      var src = w.type === 'upload' && w.value ? '/api/dock/wallpaper?id=' + encodeURIComponent(w.value) : '/api/home/wallpaper?slot=' + slot();
-      var img = new Image();
-      img.onload = function () { el.style.backgroundImage = 'url("' + src + '")'; hideBoot(); };
-      img.onerror = hideBoot;
-      img.src = src;
-      setTimeout(hideBoot, 3000);
+    else if (w.type === 'gallery') {
+      return withGallery(function (list) {
+        var p = painting(list);
+        if (!p) { cfg.wallpaper = { type: 'glasshouse', value: '' }; return wallpaper(); }
+        show('/api/dock/gallery/img?id=' + encodeURIComponent(p.id), p);
+      });
     }
-    if (w.type === 'color' || w.type === 'gradient') hideBoot();
+    else show(w.type === 'upload' && w.value ? '/api/dock/wallpaper?id=' + encodeURIComponent(w.value) : '/api/home/wallpaper?slot=' + slot(), null);
+    if (w.type === 'color' || w.type === 'gradient') { hideBoot(); caption(null); }
+    shade();
+  }
+  /* a picture, loaded before it replaces the one on screen (no flash of black) */
+  function show(src, p) {
+    var el = $('wall'), img = new Image();
+    if (show.src === src) return;
+    img.onload = function () { show.src = src; el.style.background = ''; el.style.backgroundImage = 'url("' + src + '")'; caption(p); hideBoot(); };
+    img.onerror = hideBoot;
+    img.src = src;
+    setTimeout(hideBoot, 3000);
+    shade();
+  }
+  /* the dock's painting gallery: one painting, or the next one every so many minutes */
+  var gallery = null;
+  function withGallery(cb) {
+    if (gallery) return cb(gallery);
+    api('/api/dock/gallery', 'GET', null, function (r) { gallery = (r && r.paintings) || []; cb(gallery); });
+  }
+  function painting(list) {
+    if (!list.length) return null;
+    var w = cfg.wallpaper;
+    if (w.value !== 'rotate') return list.filter(function (p) { return p.id === w.value; })[0] || list[0];
+    return list[Math.floor(Date.now() / (w.every * 60000)) % list.length];
+  }
+  function caption(p) {
+    var c = $('caption');
+    if (!p || cfg.wallpaper.caption === false) { c.style.opacity = '0'; return; }
+    c.innerHTML = '<b>' + esc(p.title) + '</b>' + (p.artist && p.artist !== 'Unknown' ? '<br>' + esc(p.artist) : '');
+    c.style.opacity = '.75';
+  }
+  function shade() {
     $('shade').style.background = 'linear-gradient(0deg,rgba(0,0,0,' + (cfg.dim + 0.2) + '),rgba(0,0,0,' + cfg.dim + ') 60%)';
   }
   function slot() { var h = new Date().getHours(); return h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night'; }
@@ -416,7 +457,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
   load(true);
   setInterval(load, 5000);      /* settings changed from the phone show up within seconds */
   setInterval(tick, 1000);
-  setInterval(function () { if (cfg) { weather(); var s = slot(); if (s !== load.slot && cfg.wallpaper.type === 'glasshouse') { load.slot = s; wallpaper(); } } }, 60000);
+  setInterval(function () { if (cfg) { weather(); var s = slot(); if ((s !== load.slot && cfg.wallpaper.type === 'glasshouse') || cfg.wallpaper.type === 'gallery') { load.slot = s; wallpaper(); } } }, 60000);
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { setMode('home'); focus = { row: 0, i: focus.i }; load(true); } });
 })();
 </script>

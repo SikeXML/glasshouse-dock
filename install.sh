@@ -34,6 +34,7 @@ cp "$SRC/server/dock.js" "$DOCK/server/"
 cp "$SRC/assets/home.html" "$SRC/assets/settings.html" "$DOCK/assets/"
 cp "$SRC/uninstall.sh" "$DOCK/" 2>/dev/null || true
 [ -f "$SRC/VERSION" ] && cp "$SRC/VERSION" "$DOCK/"
+[ -d "$SRC/gallery" ] && { rm -rf "$DOCK/gallery"; cp -r "$SRC/gallery" "$DOCK/gallery"; }
 
 # At every boot, before Glasshouse starts: put the dock back if an update replaced it.
 mkdir -p /var/lib/webosbrew/init.d

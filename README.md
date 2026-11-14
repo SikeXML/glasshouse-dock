@@ -6,6 +6,10 @@ One row of big app tiles over a full-screen picture, a clock and the weather if 
 
 ![Colour tiles](docs/dock-tiles.jpg)
 
+| Liquid glass: white icons, nothing else | Paintings gallery, with title and painter |
+|---|---|
+| ![Liquid glass](docs/dock-liquid.jpg) | ![Gallery](docs/dock-gallery.jpg) |
+
 | Glass, clock in the middle, weather | Icons only, gradient background |
 |---|---|
 | ![Glass](docs/dock-glass.jpg) | ![Clear](docs/dock-clear.jpg) |
@@ -18,25 +22,26 @@ One row of big app tiles over a full-screen picture, a clock and the weather if 
 
 **The dock**
 - Up to 8 apps **or HDMI inputs** (a PS5, a PC), in any order
-- Three styles: **colour tiles**, **glass**, or **icons only**
+- Four styles: **colour tiles**, **glass**, **liquid glass** (white icons straight on the picture) or **icons only**
 - Each tile takes its app's own colour automatically, or one you pick
 - Your own icon for any tile (a picture address or a file on the TV)
-- Small, medium or large; at the bottom or in the middle; with or without the frosted bar; names always or only on focus; your choice of focus colour
+- Small, medium or large; at the bottom or in the middle; with or without the frosted bar; app names always, on focus, or never; the "More" hint on or off; your choice of focus colour
 
 **Around it**
 - **Clock**: 12 or 24 hour, seconds, date, five positions, four sizes
 - **Weather**: current temperature, today's high and low, from [Open-Meteo](https://open-meteo.com) (free, no account, no key)
 - **Greeting**: "Good morning", "Good evening"
-- **Background**: Glasshouse's wallpapers (they follow the time of day), your own picture, a colour, or a gradient, darkened as much as you like
+- **Background**: 27 famous paintings that come with it (Van Gogh, Bruegel, Hokusai, Vermeer's era, cats...), one or a new one every 10 / 30 / 60 minutes, with the title in the corner if you like; or Glasshouse's wallpapers, your own picture, a colour or a gradient, darkened as much as you like
 
 **Getting around**
 - **Down**: Settings, All apps, LG Home
 - **Back**: recent apps (OK opens, Down closes one)
 - The Magic Remote's pointer works everywhere
 
-**Start-up fixes**
-- **Start on Home**: the TV no longer powers on into the last HDMI input, which also stops a console from waking up through HDMI-CEC every time the TV turns on
-- Glasshouse's Home opens by itself after power-on when the TV starts on LG's Home, instead of a black screen until you press Home
+**Starts first**
+- **The TV turns on straight into the dock**, instead of LG's Home or whatever HDMI input was last used (no more console waking up through HDMI-CEC every time the TV turns on). Switch it to "Last used" in Settings for LG's normal behaviour.
+- LG's Home can't be deleted (webOS needs it), but it never shows: the dock takes its place for the Home button and at power-on. "LG Home" stays one press away in the row under the dock.
+- After a full power-off, root scripts start after LG's own start-up, so LG's Home may show for a few seconds before the dock takes over. With Quick Start+ on (the TV only sleeps), it should be quicker; not measured yet.
 - Keeps Glasshouse's Home takeover running on TVs that refuse an optional Home-key notice (seen on webOS 11)
 
 ## Requirements
@@ -47,15 +52,19 @@ One row of big app tiles over a full-screen picture, a clock and the weather if 
 
 ## Install
 
-On the TV as root (SSH, or the Homebrew Channel's terminal):
+**You need:** an LG TV rooted with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel), and [Glasshouse](https://github.com/rorygallagher2024/glasshouse) installed.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/SikeXML/glasshouse-dock/main/install.sh | sh
-```
+1. **Turn on Glasshouse Home.** Open the Glasshouse dashboard (`http://<your-tv-ip>:8080` in a browser), go to **Home** and switch it on. Press Home on the remote to check that Glasshouse's Home shows.
+2. **Open a terminal on the TV.** From a computer: `ssh root@<your-tv-ip>` (Homebrew Channel → Settings → enable SSH first). Or use the Homebrew Channel's own terminal.
+3. **Paste this and press Enter:**
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/SikeXML/glasshouse-dock/main/install.sh | sh
+   ```
+4. **Press Home** on the remote. That's it.
 
-Then press **Home**. To change things: **Home → Down → Settings** on the TV, or open `http://<your-tv-ip>:8080/dock/settings` on a phone on the same Wi-Fi. Changes show on the TV within a few seconds.
+**To set it up:** on the TV press **Down → Settings**, or on your phone open `http://<your-tv-ip>:8080/dock/settings` (same Wi-Fi). Changes show on the TV within a few seconds.
 
-Updating is the same command.
+**To update:** run the same command again.
 
 ### Glasshouse updates
 
@@ -92,6 +101,6 @@ Nothing is sent anywhere except weather lookups (the city's position, to Open-Me
 
 ## Credits and licence
 
-Built on [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by rorygallagher2024 (MIT), which does the hard part: taking over LG's Home, the app catalogue, icons, wallpapers and recent apps. Glasshouse Dock is an independent add-on and is not part of or endorsed by Glasshouse. Weather by [Open-Meteo](https://open-meteo.com) (CC BY 4.0). The background in the screenshots is a public-domain painting from a museum collection.
+Built on [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by rorygallagher2024 (MIT), which does the hard part: taking over LG's Home, the app catalogue, icons, wallpapers and recent apps. Glasshouse Dock is an independent add-on and is not part of or endorsed by Glasshouse. Weather by [Open-Meteo](https://open-meteo.com) (CC BY 4.0). The paintings are public-domain works; each one, with its source, is listed in [gallery/CREDITS.md](gallery/CREDITS.md). The background in most screenshots is *Making Music* by Henriette Ronner-Knip.
 
 MIT licence, see [LICENSE](LICENSE). LG and webOS are trademarks of LG Electronics; app names and icons belong to their owners.

@@ -49,6 +49,11 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
 .colors button{width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.25);padding:0;cursor:pointer}
 .colors button.on{border-color:#fff;transform:scale(1.12)}
 #places button{display:block;margin-top:8px}
+#galGrid{display:flex;flex-wrap:wrap;gap:10px;padding:12px 0 4px}
+#galGrid button{width:160px;height:90px;border-radius:10px;border:3px solid transparent;padding:0;overflow:hidden;cursor:pointer;background:#222a39}
+.tv #galGrid button{width:200px;height:113px}
+#galGrid button img{width:100%;height:100%;object-fit:cover;display:block}
+#galGrid button.on{border-color:#fff}
 </style>
 </head>
 <body>
@@ -64,11 +69,11 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
 
 <section>
   <h2>Look</h2>
-  <div class="row"><label>Style</label><div class="seg" data-k="style" data-v="tiles:Colour tiles,glass:Glass,clear:Icons only"></div></div>
+  <div class="row"><label>Style</label><div class="seg" data-k="style" data-v="tiles:Colour tiles,glass:Glass,liquid:Liquid glass,clear:Icons only"></div></div>
   <div class="row"><label>Size</label><div class="seg" data-k="size" data-v="small:Small,medium:Medium,large:Large"></div></div>
   <div class="row"><label>Position</label><div class="seg" data-k="position" data-v="bottom:Bottom,middle:Middle"></div></div>
   <div class="row"><label>Frosted bar behind the dock</label><div class="seg" data-k="bar" data-v="true:On,false:Off"></div></div>
-  <div class="row"><label>Names under the icons</label><div class="seg" data-k="labels" data-v="true:Always,false:When focused"></div></div>
+  <div class="row"><label>Names under the icons</label><div class="seg" data-k="labels" data-v="true:Always,focus:When focused,false:Never"></div></div>
   <div class="row"><label>Focus colour</label><div class="colors" id="accent"></div></div>
   <div class="row"><label>"More" hint under the dock</label><div class="seg" data-k="hint" data-v="true:Show,false:Hide"></div></div>
 </section>
@@ -78,6 +83,12 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
   <div class="row"><label>Picture</label><div class="seg" id="wallType"></div></div>
   <div class="row" id="wallColors" style="display:none"><label>Colour</label><div class="colors" id="wallColor"></div></div>
   <div class="row" id="wallGrads" style="display:none"><label>Gradient</label><div class="seg" id="wallGrad"></div></div>
+  <div id="wallGallery" style="display:none">
+    <div class="row"><label>Painting</label><div class="seg" id="galMode"></div></div>
+    <div class="row" id="galEveryRow"><label>Change every</label><div class="seg" id="galEvery"></div></div>
+    <div class="row"><label>Title and painter in the corner</label><div class="seg" id="galCaption"></div></div>
+    <div id="galGrid"></div>
+  </div>
   <div class="row" id="wallUpload" style="display:none"><label>Your own picture (phone or computer)</label><input type="file" id="file" accept="image/jpeg,image/png,image/webp"></div>
   <div class="row"><label>Darken</label><div class="seg" data-k="dim" data-v="0:None,0.15:A little,0.3:More,0.5:A lot"></div></div>
 </section>
@@ -103,7 +114,7 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
 
 <section>
   <h2>Start-up</h2>
-  <div class="row"><label>Start the TV on Home, not on the last HDMI input<br><span style="opacity:.55;font-size:14px">Stops a console from waking up through HDMI-CEC when the TV turns on</span></label><div class="seg" data-k="startOnHome" data-v="true:On,false:Off"></div></div>
+  <div class="row"><label>When the TV turns on<br><span style="opacity:.55;font-size:14px">Dock: the TV opens straight into the dock instead of LG's Home or the last HDMI input (and a console on that input no longer wakes up). Last used: LG's normal behaviour.</span></label><div class="seg" data-k="startOnHome" data-v="true:Dock,false:Last used"></div></div>
 </section>
 
 <div id="status">Saved</div>
@@ -172,12 +183,14 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
     });
     $('accent').innerHTML = ACCENTS.map(function (c) { return '<button data-accent="' + c + '" class="' + (cfg.accent === c ? 'on' : '') + '" style="background:' + c + '"></button>'; }).join('');
     var wt = cfg.wallpaper.type;
-    $('wallType').innerHTML = [['glasshouse', 'Glasshouse'], ['upload', 'My picture'], ['color', 'Colour'], ['gradient', 'Gradient']].map(function (p) {
+    $('wallType').innerHTML = [['gallery', 'Paintings'], ['glasshouse', 'Glasshouse'], ['upload', 'My picture'], ['color', 'Colour'], ['gradient', 'Gradient']].map(function (p) {
       return '<button data-wall="' + p[0] + '" class="' + (wt === p[0] ? 'on' : '') + '">' + p[1] + '</button>';
     }).join('');
     $('wallColors').style.display = wt === 'color' ? '' : 'none';
     $('wallGrads').style.display = wt === 'gradient' ? '' : 'none';
     $('wallUpload').style.display = wt === 'upload' ? '' : 'none';
+    $('wallGallery').style.display = wt === 'gallery' ? '' : 'none';
+    if (wt === 'gallery') drawGallery();
     $('wallColor').innerHTML = ['#080b12', '#14213d', '#1b4332', '#3c1642', '#5c2018', '#2b2d42'].map(function (c) {
       return '<button data-wcolor="' + c + '" class="' + (cfg.wallpaper.value === c ? 'on' : '') + '" style="background:' + c + '"></button>';
     }).join('');
@@ -214,9 +227,12 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
     }
     if (b.hasAttribute('data-accent')) return save({ accent: b.getAttribute('data-accent') });
     if (b.hasAttribute('data-wall')) {
-      var type = b.getAttribute('data-wall'), val = type === 'color' ? '#080b12' : type === 'gradient' ? 'dusk' : type === 'upload' ? (cfg.wallpaper.type === 'upload' ? cfg.wallpaper.value : '') : '';
+      var type = b.getAttribute('data-wall'), val = type === 'gallery' ? (cfg.wallpaper.type === 'gallery' ? cfg.wallpaper.value : 'rotate') : type === 'color' ? '#080b12' : type === 'gradient' ? 'dusk' : type === 'upload' ? (cfg.wallpaper.type === 'upload' ? cfg.wallpaper.value : '') : '';
       return save({ wallpaper: { type: type, value: val } });
     }
+    if (b.hasAttribute('data-gal')) return save({ wallpaper: { type: 'gallery', value: b.getAttribute('data-gal') } });
+    if (b.hasAttribute('data-galevery')) return save({ wallpaper: { every: +b.getAttribute('data-galevery') } });
+    if (b.hasAttribute('data-galcap')) return save({ wallpaper: { caption: b.getAttribute('data-galcap') === 'true' } });
     if (b.hasAttribute('data-wcolor')) return save({ wallpaper: { type: 'color', value: b.getAttribute('data-wcolor') } });
     if (b.hasAttribute('data-wgrad')) return save({ wallpaper: { type: 'gradient', value: b.getAttribute('data-wgrad') } });
     if (b.id === 'findPlace') return findPlace();
@@ -226,6 +242,23 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
     }
   });
 
+  /* the paintings that come with the dock */
+  var paintings = null;
+  function drawGallery() {
+    if (!paintings) { api('/api/dock/gallery', 'GET', null, function (r) { paintings = (r && r.paintings) || []; drawGallery(); }); return; }
+    var w = cfg.wallpaper, rot = w.value === 'rotate';
+    $('galMode').innerHTML = '<button data-gal="rotate" class="' + (rot ? 'on' : '') + '">A new one regularly</button>' +
+      '<button data-gal="' + esc(rot || !w.value ? (paintings[0] || {}).id || '' : w.value) + '" class="' + (rot ? '' : 'on') + '">Always the same</button>';
+    $('galEveryRow').style.display = rot ? '' : 'none';
+    $('galEvery').innerHTML = [[10, '10 minutes'], [30, '30 minutes'], [60, 'An hour']].map(function (p) {
+      return '<button data-galevery="' + p[0] + '" class="' + (w.every === p[0] ? 'on' : '') + '">' + p[1] + '</button>';
+    }).join('');
+    $('galCaption').innerHTML = '<button data-galcap="true" class="' + (w.caption !== false ? 'on' : '') + '">Show</button><button data-galcap="false" class="' + (w.caption === false ? 'on' : '') + '">Hide</button>';
+    $('galGrid').innerHTML = rot ? '' : paintings.map(function (p) {
+      return '<button data-gal="' + esc(p.id) + '" class="' + (w.value === p.id ? 'on' : '') + '" title="' + esc(p.title + ', ' + p.artist) + '"><img src="/api/dock/gallery/img?thumb=1&id=' + encodeURIComponent(p.id) + '" alt=""></button>';
+    }).join('');
+    refocus();
+  }
   function findPlace() {
     var q = $('place').value.trim();
     if (!q) return;
