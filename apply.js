@@ -22,7 +22,11 @@ var remove = process.argv.indexOf('--remove') >= 0;
 var restart = false;
 
 function read(p) { try { return fs.readFileSync(p, 'utf8'); } catch (e) { return null; } }
-function write(p, s) { fs.writeFileSync(p + '.dock-tmp', s); fs.renameSync(p + '.dock-tmp', p); }
+function write(p, s) {
+  // keep the old file's mode: the init.d hooks must stay executable or run-parts skips them at boot
+  var mode = 420; try { mode = fs.statSync(p).mode & 4095; } catch (e) {}
+  fs.writeFileSync(p + '.dock-tmp', s, { mode: mode }); fs.chmodSync(p + '.dock-tmp', mode); fs.renameSync(p + '.dock-tmp', p);
+}
 function say(s) { console.log('dock: ' + s); }
 
 /* 1. the server module, loaded from routes.js */
