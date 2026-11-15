@@ -110,9 +110,13 @@ PY
     case "$kind" in
       ERROR) echo "$(date): app manager did not answer, cleanup skipped this boot" >> $LOG ;;
       bin)
-        b=/usr/sbin/${id#bin:}
-        [ -f "$b" ] && ! mounted "$b" && mount --bind $C/stub "$b"
-        pkill -9 -f "^$b" ;;
+        # only the programs Settings offers; stopped by their exact name
+        name=${id#bin:}
+        case "$name" in adoverlay-service) ;; *) echo "$(date): $id is not one the cleanup offers, left alone" >> $LOG; continue ;; esac
+        b=/usr/sbin/$name
+        [ -f "$b" ] || continue
+        mounted "$b" || mount --bind $C/stub "$b"
+        for pid in $(pidof "$name"); do kill -9 "$pid"; done ;;
       protected) echo "$(date): $id is needed by the TV, left alone" >> $LOG ;;
       override)
         M=$C/overrides/$id

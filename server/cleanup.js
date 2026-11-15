@@ -63,8 +63,14 @@ var PROTECTED = ['com.webos.app.home', 'com.palm.app.settings', 'com.webos.app.l
   'com.webos.app.screensaver', 'com.webos.app.tnativehome', 'com.webos.app.discovery', 'com.webos.app.softwareupdate',
   'com.webos.app.membership', 'com.webos.app.quicksettings', 'com.webos.app.starfish_flutter_systemui',
   'com.webos.app.keyboard', 'com.webos.app.notificationcenter', 'com.tvweb.dashboard', 'org.webosbrew.hbchannel'];
-var ID = /^(bin:[a-z0-9._-]{1,60}|[A-Za-z0-9._-]{1,120})$/;
-function allowed(id) { return ID.test(id) && PROTECTED.indexOf(id) < 0 && !/^com\.webos\.app\.hdmi/.test(id); }
+// app ids as webOS writes them; programs only from the list above (they are replaced and stopped)
+var ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/;
+function isProgram(id) { return GROUPS.some(function (g) { return g.apps.some(function (a) { return a[0] === id && id.indexOf('bin:') === 0; }); }); }
+function allowed(id) {
+  id = String(id);
+  if (id.indexOf('bin:') === 0) return isProgram(id);
+  return ID.test(id) && PROTECTED.indexOf(id) < 0 && !/^com\.webos\.app\.hdmi/.test(id);
+}
 
 function recommended() {
   var out = [];
@@ -207,12 +213,24 @@ function watchPreload() {
 }
 
 function change(body, cb) {
+  if (!Array.isArray(body.disable)) return apply(body, null, cb);
+  // only what Settings offers on this TV: the groups above and this TV's other LG apps with a tile
+  status(function (st) {
+    var offered = {};
+    st.groups.forEach(function (g) { g.apps.forEach(function (a) { offered[a.id] = 1; }); });
+    apply(body, offered, cb);
+  });
+}
+function apply(body, offered, cb) {
   var o = readOptions(), before = o.disable.slice();
   if (typeof body.guard === 'boolean') o.guard = body.guard;
   if (typeof body.stopLgHomePreload === 'boolean') o.stopLgHomePreload = body.stopLgHomePreload;
   if (Array.isArray(body.disable)) {
     var seen = {};
-    o.disable = body.disable.filter(function (id) { if (!allowed(String(id)) || seen[id]) return false; seen[id] = 1; return true; });
+    o.disable = body.disable.filter(function (id) {
+      if (!allowed(id) || seen[id] || (offered && !offered[id] && before.indexOf(id) < 0)) return false;
+      seen[id] = 1; return true;
+    });
   }
   writeOptions(o);
   var back = before.filter(function (id) { return o.disable.indexOf(id) < 0; });

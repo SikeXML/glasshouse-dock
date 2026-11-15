@@ -266,7 +266,10 @@ function keepHomeOnScreen() {
       if (++emptyFor < 2) return;
       emptyFor = 0;
       console.log('dock: nothing on screen for 20 s, opening the dock');
-      L.call('com.webos.applicationManager/launch', { id: 'com.webos.app.home' }, function () {});
+      // a plain launch does not bring back a Home left loaded but hidden: close it first
+      L.call('com.palm.webappmanager/killApp', { appId: 'com.webos.app.home' }, function () {
+        setTimeout(function () { L.call('com.webos.applicationManager/launch', { id: 'com.webos.app.home' }, function () {}); }, 1500);
+      });
     });
   });
 }
