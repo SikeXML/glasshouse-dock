@@ -88,8 +88,10 @@ function bootHook() {
   names.filter(function (n) { return /tvweb$/.test(n); }).forEach(function (n) {
     var p = path.join(HOOKS, n), s = read(p);
     if (s === null) return;
-    if (remove) { if (s.indexOf(BOOT_NEW) >= 0) { write(p, s.split(BOOT_NEW).join(BOOT_OLD)); say('restored ' + n); } return; }
-    if (s.indexOf(BOOT_OLD) >= 0) { write(p, s.split(BOOT_OLD).join(BOOT_NEW)); say('patched ' + n + ' to open Home at power-on'); }
+    if (remove) { if (s.indexOf(BOOT_NEW) >= 0) { write(p, s.split(BOOT_NEW).join(BOOT_OLD)); say('restored ' + n); } }
+    else if (s.indexOf(BOOT_OLD) >= 0) { write(p, s.split(BOOT_OLD).join(BOOT_NEW)); say('patched ' + n + ' to open Home at power-on'); }
+    // dock 0.2.0 and older left this hook without its exec bit, so Glasshouse did not start after a reboot
+    try { var m = fs.statSync(p).mode; if ((m & 73) !== 73) { fs.chmodSync(p, (m & 4095) | 73); say('made ' + n + ' executable again'); } } catch (e) {}
   });
 }
 
