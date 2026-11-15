@@ -83,6 +83,6 @@ echo "Uninstall: sh $DOCK/uninstall.sh"
 if [ "$CL" = on ]; then
   echo
   echo "Clean up webOS is on (Settings > Clean up webOS shows and changes every option)."
-  echo "Restart the TV once to finish: apps with a Home tile go at the next start-up."
+  echo "Apps with a Home tile that you disable go at the next restart (Settings shows which are waiting)."
   echo "Undo everything: sh $DOCK/cleanup/restore --uninstall"
 fi
