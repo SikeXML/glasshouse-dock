@@ -4,7 +4,12 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/SikeXML/glasshouse-dock/main/install.sh | sh
 #
-# From a copy of this repository on the TV instead:  sh install.sh --local
+# With the optional cleanup of LG's apps switched on at the recommended set (Alexa, LG Channels,
+# ads...); without it, everything stays off until you choose in Settings > Clean up webOS:
+#
+#   curl -fsSL https://raw.githubusercontent.com/SikeXML/glasshouse-dock/main/install.sh | sh -s -- --cleanup
+#
+# From a copy of this repository on the TV instead:  sh install.sh --local [--cleanup]
 set -e
 
 REPO="${DOCK_REPO:-SikeXML/glasshouse-dock}"
@@ -12,13 +17,15 @@ REF="${DOCK_REF:-main}"
 TV=/var/lib/tvweb
 DOCK=$TV/dock
 HOOK=/var/lib/webosbrew/init.d/49-glasshouse-dock
+LOCAL=0; CLEANUP=0
+for a in "$@"; do case "$a" in --local) LOCAL=1 ;; --cleanup) CLEANUP=1 ;; esac; done
 
 [ "$(id -u)" = 0 ] || { echo "Run this as root on the TV."; exit 1; }
 [ -f "$TV/lib/routes.js" ] && [ -x "$TV/tvwebctl" ] || {
   echo "Glasshouse is not installed in $TV. Install it first: https://github.com/rorygallagher2024/glasshouse"; exit 1; }
 NODE=$(command -v node || echo /usr/bin/node)
 
-if [ "$1" = "--local" ]; then
+if [ $LOCAL = 1 ]; then
   SRC=$(cd "$(dirname "$0")" && pwd)
 else
   TMP=$(mktemp -d /tmp/dock.XXXXXX)
@@ -54,6 +61,14 @@ OUT=$("$NODE" "$DOCK/apply.js")
 echo "$OUT"
 case "$OUT" in *changed*) echo "Restarting Glasshouse..."; "$TV/tvwebctl" restart >/dev/null 2>&1 || true; sleep 4 ;; esac
 
+# The optional cleanup of LG's apps: its files are always installed, but it does nothing until
+# an option is switched on (Settings > Clean up webOS, or --cleanup for the recommended set).
+mkdir -p "$DOCK/cleanup"
+cp "$SRC/server/cleanup.js" "$DOCK/server/"
+cp "$SRC/cleanup/hook.sh" "$SRC/cleanup/restore" "$DOCK/cleanup/"
+chmod 755 "$DOCK/cleanup/restore"
+CL=$(CLEANUP=$CLEANUP "$NODE" -e 'var o=require(process.argv[1]).install(process.env.CLEANUP==="1");console.log(o.guard||o.stopLgHomePreload||o.disable.length?"on":"off")' "$DOCK/server/cleanup.js")
+
 # Reload Home so the dock shows now
 luna-send -n 1 -w 3000 luna://com.palm.webappmanager/killApp '{"appId":"com.webos.app.home"}' >/dev/null 2>&1 || true
 sleep 1
@@ -65,3 +80,9 @@ echo
 echo "Glasshouse Dock is installed."
 echo "Settings: Home > Down > Settings on the TV, or http://${IP:-<tv-ip>}:8080/dock/settings on a phone."
 echo "Uninstall: sh $DOCK/uninstall.sh"
+if [ "$CL" = on ]; then
+  echo
+  echo "Clean up webOS is on (Settings > Clean up webOS shows and changes every option)."
+  echo "Restart the TV once to finish: apps with a Home tile go at the next start-up."
+  echo "Undo everything: sh $DOCK/cleanup/restore --uninstall"
+fi

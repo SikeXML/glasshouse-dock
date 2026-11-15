@@ -6,6 +6,7 @@ DOCK=$TV/dock
 NODE=$(command -v node || echo /usr/bin/node)
 
 [ "$(id -u)" = 0 ] || { echo "Run this as root on the TV."; exit 1; }
+[ -f "$DOCK/cleanup/restore" ] && sh "$DOCK/cleanup/restore" --uninstall
 [ -f "$DOCK/apply.js" ] && "$NODE" "$DOCK/apply.js" --remove
 rm -f /var/lib/webosbrew/init.d/49-glasshouse-dock
 "$TV/tvwebctl" restart >/dev/null 2>&1 || true

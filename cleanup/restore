@@ -1,0 +1,54 @@
+#!/bin/sh
+# Brings back LG apps the dock's cleanup disabled (the same as switching them back on in Settings).
+#   sh /var/lib/tvweb/dock/cleanup/restore <app id | bin:name> ...   one or more
+#   sh /var/lib/tvweb/dock/cleanup/restore --all                     every app
+#   sh /var/lib/tvweb/dock/cleanup/restore --uninstall               every app, all options off, boot script removed
+# Apps that had a Home tile come back after the next TV restart.
+C=/var/lib/tvweb/dock/cleanup
+OPT=$C/options.json
+SYSAPPS=/media/system/apps/usr/palm/applications
+SAVED=/media/system/dock-cleanup-saved
+HOOK=/var/lib/webosbrew/init.d/16-glasshouse-dock-cleanup
+NODE=$(command -v node || echo /usr/bin/node)
+
+[ "$(id -u)" = 0 ] || { echo "Run this as root on the TV."; exit 1; }
+[ -n "$1" ] || { sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+listed() { [ -f $OPT ] && "$NODE" -e 'console.log((JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).disable||[]).join(" "))' $OPT 2>/dev/null; }
+case "$1" in
+  --all|--uninstall) ids="$(listed) $(ls $C/overrides 2>/dev/null)" ;;
+  *) ids="$*" ;;
+esac
+# take them out of options.json (and, with --uninstall, switch every option off)
+[ -f $OPT ] && "$NODE" -e '
+var fs = require("fs"), f = process.argv[1], all = process.argv[2] === "--uninstall", rm = process.argv.slice(3);
+var o = JSON.parse(fs.readFileSync(f, "utf8"));
+o.disable = (o.disable || []).filter(function (i) { return rm.indexOf(i) < 0; });
+if (all) { o.guard = false; o.stopLgHomePreload = false; o.disable = []; }
+fs.writeFileSync(f, JSON.stringify(o, null, 1) + "\n");
+if (!o.guard && !o.stopLgHomePreload && !o.disable.length) process.exit(3);' $OPT "$1" $ids
+[ $? = 3 ] && rm -f "$HOOK"
+
+mounted() { awk -v p="$1" '$2==p {f=1} END {exit !f}' /proc/mounts; }
+restart=0
+for id in $(echo $ids | tr ' ' '\n' | sort -u); do
+  case "$id" in
+    bin:*) umount /usr/sbin/${id#bin:} 2>/dev/null; echo "restored ${id#bin:}" ;;
+    *)
+      if [ -d "$C/overrides/$id" ]; then
+        rm -rf "$C/overrides/$id" "$SYSAPPS/$id"
+        [ -d "$SAVED/$id" ] && [ ! -f "$SAVED/$id/.glasshouse-dock-cleanup" ] && mv "$SAVED/$id" "$SYSAPPS/$id"
+        echo "restored $id (after the next restart)"; restart=1
+      else
+        for r in /usr/palm/applications /mnt/otncabi/usr/palm/applications; do
+          mounted "$r/$id" && umount "$r/$id"
+        done
+        luna-send -n 1 -w 4000 luna://com.webos.applicationManager/releaseBlockSystemApp "{\"id\":\"$id\"}" >/dev/null 2>&1 </dev/null
+        echo "restored $id"
+      fi ;;
+  esac
+done
+# give LG's preload allow list back its entries for the apps switched on again
+"$NODE" -e 'require(process.argv[1]).syncAllowList()' /var/lib/tvweb/dock/server/cleanup.js 2>/dev/null
+[ -f "$HOOK" ] || echo "Nothing is switched on any more: the cleanup's boot script is removed."
+[ $restart = 1 ] && echo "Restart the TV to finish."
+exit 0

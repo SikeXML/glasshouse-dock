@@ -43,6 +43,14 @@ One row of big app tiles over a full-screen picture, a clock and the weather if 
 - LG's Home can't be deleted (webOS needs it), but it never shows: the dock takes its place for the Home button and at power-on. "LG Home" stays one press away in the row under the dock.
 - After a full power-off, root scripts start after LG's own start-up, so LG's Home may show for a few seconds before the dock takes over. With Quick Start+ on (the TV only sleeps), it should be quicker; not measured yet.
 - Keeps Glasshouse's Home takeover running on TVs that refuse an optional Home-key notice (seen on webOS 11)
+- **Brings the dock back if the screen goes empty.** After a full power-off, webOS restarts the part that runs web apps about a minute in, which can close the dock and leave a black screen. When the TV is on and nothing at all is showing for 20 seconds, the dock opens again. Apps, inputs and the screen saver are never interrupted. On by default, switch in Settings → Start-up.
+
+**Clean up webOS (optional, everything off until you choose)**
+- **Disable LG apps you don't use**: Alexa, Home Hub, LG Channels, Sports, Camera, Multi View, LG Link, Gallery+, Tips and more, each one separately. They lose their Home tile, never start by themselves (LG's background preloading included) and can't be opened, not even by a remote button.
+- **The hidden ad apps**: 20 apps LG uses to show ads, video ads and food-delivery offers over live TV and HDMI, and the ad program running in the background
+- **Keep LG's Home from reloading in the background** (it can leave the dock hidden)
+- **Repair boot scripts** that lost their "executable" mark, which makes the TV skip them without a word
+- All from Settings, with each app's live state; everything undoes from there or with one command. See [Clean up webOS](#clean-up-webos-optional).
 
 ## Requirements
 
@@ -66,6 +74,11 @@ One row of big app tiles over a full-screen picture, a clock and the weather if 
 
 **To update:** run the same command again.
 
+**Clean up webOS** is off after installing. Switch on what you want in Settings → Clean up webOS, or install with the recommended set already on:
+```sh
+curl -fsSL https://raw.githubusercontent.com/SikeXML/glasshouse-dock/main/install.sh | sh -s -- --cleanup
+```
+
 ### Glasshouse updates
 
 A Glasshouse update replaces its own files, including the Home page. Glasshouse Dock installs a boot script (`/var/lib/webosbrew/init.d/49-glasshouse-dock`) that puts the dock back at the next start-up, so after updating Glasshouse either restart the TV or run:
@@ -74,6 +87,36 @@ A Glasshouse update replaces its own files, including the Home page. Glasshouse 
 node /var/lib/tvweb/dock/apply.js && /var/lib/tvweb/tvwebctl restart
 ```
 
+## Clean up webOS (optional)
+
+![Clean up webOS in Settings](docs/cleanup.jpg)
+
+Everything here is **off until you switch it on**, in Settings → Clean up webOS (on the TV, or `http://<your-tv-ip>:8080/dock/settings#cleanup` on a phone). Each option and each app has its own switch, shows what it is doing right now, and undoes from the same place. Nothing on LG's read-only system is changed: a factory reset removes all of it.
+
+| Option | What it does |
+|---|---|
+| **Repair boot scripts** | webOS Homebrew runs the boot scripts in `/var/lib/webosbrew/init.d` only if they are marked executable, and skips the others without a word. (This once kept Glasshouse from starting after an update.) At every start-up, any that lost the mark get it back, and the ones skipped are run. |
+| **Keep LG's Home from reloading in the background** | LG's preload manager reloads LG's Home behind the scenes after start-up, which can leave the dock hidden. It is asked not to, and checked every 10 seconds while Glasshouse runs, as LG forgets this at every start (and, on some TVs, every switch-on). |
+| **Disable LG apps** | Each app you pick. Apps not on your TV are shown as such and skipped. The TV's essentials (Settings, inputs, Live TV, Home, the app store, software update, the keyboard...) are never offered and are refused even if asked. |
+
+**How an app is disabled** (from `cleanup/hook.sh`, where each step is written out):
+- **Apps with a Home tile, or ones LG updated through its store** (Alexa, Home Hub, LG Channels, Sports, Camera, Multi View, LG Link, Gallery+): webOS reads a writable system-app folder, `/media/system/apps/usr/palm/applications`, at start-up, before it builds any tile, and a copy there replaces the built-in one. The cleanup puts a hidden copy of the app there whose only page closes itself. So: no tile, never started, opening it (even from a remote button) does nothing. This takes effect **from the next restart**. If LG had updated the app, its update is moved to `/media/system/dock-cleanup-saved` and comes back when you switch the app on again.
+- **Apps without a tile** (the ad overlays, Tips, Calendar, Music...): webOS blocks them (`blockSystemApp`), and their files are covered with that same closing page until the next restart.
+- **Programs** (the ad overlay service): `/usr/sbin/adoverlay-service` is replaced, until the next restart, by one that does nothing.
+- **LG's preload manager** is kept off the disabled apps: they are set to `false` in its allow list (`/var/preferences/webos-preload-manager-conf.json`, read when it starts), and only the entries set here are put back.
+
+While at least one option is on, one boot script applies them at every start-up: `/var/lib/webosbrew/init.d/16-glasshouse-dock-cleanup` (a copy of [`cleanup/hook.sh`](cleanup/hook.sh), plain shell, readable on the TV). It restarts nothing, so there is no flicker. With everything off, it is deleted. Its log is `/tmp/glasshouse-dock-cleanup.log`.
+
+**From the command line** (SSH):
+```sh
+sh /var/lib/tvweb/dock/cleanup/restore com.webos.app.lgchannels   # bring one app back
+sh /var/lib/tvweb/dock/cleanup/restore --all                      # bring every app back
+sh /var/lib/tvweb/dock/cleanup/restore --uninstall                # every app back, every option off, boot script removed
+```
+Your choices are in `/var/lib/tvweb/dock/cleanup/options.json`.
+
+**Needs** `python3` on the TV for disabling apps (the other two options work without it). Tested on an LG G4 with webOS 11.2. On a TV without the writable system-app folder, apps with a tile can't be hidden; they are covered and closed instead. Reports from other models are welcome.
+
 ## Uninstall
 
 ```sh
@@ -81,7 +124,7 @@ sh /var/lib/tvweb/dock/uninstall.sh          # keeps your settings and pictures
 sh /var/lib/tvweb/dock/uninstall.sh --purge  # removes them too
 ```
 
-Glasshouse's own Home page and files are put back exactly as they were.
+Glasshouse's own Home page and files are put back exactly as they were, and Clean up webOS is undone first (every app back, its boot script removed). Apps that had a Home tile come back after the next restart.
 
 ## What it changes
 
@@ -96,6 +139,11 @@ Everything lives in `/var/lib/tvweb/dock`. The installer then makes these change
 | `/var/lib/webosbrew/init.d/*tvweb` | Glasshouse Home also opens at power-on when the TV starts on LG's Home |
 | `/var/lib/tvweb/assets/home-app/index.html` | no fade-in (the dock draws its own start) |
 | `/var/lib/webosbrew/init.d/49-glasshouse-dock` | re-applies the above after a Glasshouse update |
+| `/var/lib/webosbrew/init.d/16-glasshouse-dock-cleanup` | only while a Clean up webOS option is on: applies your choices at start-up |
+| `/media/system/apps/usr/palm/applications/<app>` | only for apps you disabled that have a Home tile: the hidden copy (LG's update, if any, kept in `/media/system/dock-cleanup-saved`) |
+| `/var/preferences/webos-preload-manager-conf.json` | only for apps you disabled: set to `false` in LG's preload allow list |
+
+The dock's own server (`server/dock.js`, `server/cleanup.js`) also, while Glasshouse runs: keeps the TV from starting on an HDMI input (Start-up → Dock), brings the dock back when the screen is left empty (Start-up), and keeps LG's preload manager off LG's Home and the disabled apps (Clean up webOS). Each has its switch in Settings.
 
 Nothing is sent anywhere except weather lookups (the city's position, to Open-Meteo), and only while weather is on.
 

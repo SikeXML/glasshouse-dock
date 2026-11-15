@@ -6,8 +6,10 @@
  *   POST /api/dock/wallpaper         upload a picture (raw JPEG/PNG/WebP body)
  *   GET  /api/dock/wallpaper?id=...  a picture uploaded before
  *   GET  /dock/settings              the settings page (TV and phone)
+ *   GET/POST /api/dock/cleanup       the optional cleanup of LG's apps (server/cleanup.js)
  * and, while "Start on Home" is on, keeps the TV from starting on an HDMI input
- * (which can wake a console through HDMI-CEC) by moving the last input to Home.
+ * (which can wake a console through HDMI-CEC) by moving the last input to Home;
+ * while "Bring the dock back" is on, reopens it when the screen is left empty.
  *
  * The TV runs node v0.12: ES5 only, as everywhere else in Glasshouse.
  * MIT licence, see LICENSE. Not part of Glasshouse; made to run beside it.
@@ -42,7 +44,8 @@ var DEFAULTS = {
   weather: { show: false, place: '', lat: null, lon: null, units: 'c' },
   greeting: false,
   hint: true,
-  startOnHome: true
+  startOnHome: true,
+  reopenHome: true          // bring the dock back when the TV is on and nothing is on screen (see keepHomeOnScreen)
 };
 
 function mkdir(p) { try { fs.mkdirSync(p); } catch (e) { if (e.code !== 'EEXIST') throw e; } }
@@ -91,7 +94,7 @@ function clean(c) {
   Object.keys(o.icons || {}).forEach(function (k) { var v = o.icons[k]; if (ENTRY.test(k) && typeof v === 'string' && /^(\/|https:\/\/)[^"'<>\s\\]{1,300}$/.test(v)) ic[k] = v; });
   o.icons = ic;
   o.size = oneOf(o.size, ['small', 'medium', 'large'], 'medium');
-  o.bar = !!o.bar; o.labels = o.labels === 'focus' ? 'focus' : !!o.labels; o.greeting = !!o.greeting; o.hint = !!o.hint; o.startOnHome = !!o.startOnHome;
+  o.bar = !!o.bar; o.labels = o.labels === 'focus' ? 'focus' : !!o.labels; o.greeting = !!o.greeting; o.hint = !!o.hint; o.startOnHome = !!o.startOnHome; o.reopenHome = o.reopenHome !== false;
   o.accent = HEX.test(o.accent) ? o.accent : '#ffffff';
   o.position = oneOf(o.position, ['bottom', 'middle'], 'bottom');
   var w = o.wallpaper || {};
@@ -215,6 +218,11 @@ function handle(req, res) {
     });
     return true;
   }
+  if (p === '/api/dock/cleanup') {
+    var cl = null;
+    try { cl = require(path.join(ROOT, 'server', 'cleanup.js')); } catch (x) {}
+    if (cl) return cl.handle(req, res, p, send, body);
+  }
   send(res, 404, { ok: false, error: 'not found' });
   return true;
 }
@@ -240,5 +248,31 @@ function keepStartOffInputs() {
   });
 }
 setTimeout(function () { keepStartOffInputs(); setInterval(keepStartOffInputs, 15000); }, 20000);
+/*
+ * On a cold start LG restarts its web app manager about 50 s in (its lsm-ready step, once
+ * /tmp/boot-done exists). That closes every web app, Glasshouse's Home included, and nothing
+ * opens it again: the TV stays on a black screen until Home is pressed. With "reopenHome" on,
+ * when the TV is on and no app at all is in front for two checks in a row (20 s), the dock is
+ * opened. Any app, input or the screen saver in front, or the screen off, and nothing happens.
+ */
+var emptyFor = 0;
+function keepHomeOnScreen() {
+  if (!read().reopenHome) { emptyFor = 0; return; }
+  var L = require('./luna');
+  L.call('com.webos.service.tvpower/power/getPowerState', {}, function (p) {
+    if (!p || p.state !== 'Active') { emptyFor = 0; return; }
+    L.call('com.webos.applicationManager/getForegroundAppInfo', {}, function (f) {
+      if (!f || !f.returnValue || f.appId) { emptyFor = 0; return; }
+      if (++emptyFor < 2) return;
+      emptyFor = 0;
+      console.log('dock: nothing on screen for 20 s, opening the dock');
+      L.call('com.webos.applicationManager/launch', { id: 'com.webos.app.home' }, function () {});
+    });
+  });
+}
+setTimeout(function () { setInterval(keepHomeOnScreen, 10000); }, 30000);
+
+// the optional cleanup keeps LG's preload manager off the apps you chose (server/cleanup.js)
+try { require(path.join(ROOT, 'server', 'cleanup.js')).watchPreload(); } catch (e) {}
 
 module.exports = { handle: handle, read: read, clean: clean };

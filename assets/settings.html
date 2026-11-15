@@ -54,6 +54,22 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
 .tv #galGrid button{width:200px;height:113px}
 #galGrid button img{width:100%;height:100%;object-fit:cover;display:block}
 #galGrid button.on{border-color:#fff}
+.hint{opacity:.55;font-size:14px}
+.tv .hint{font-size:18px}
+.note{opacity:.7;font-size:15px;margin:0 0 10px;line-height:1.45}
+.tv .note{font-size:20px}
+code{background:#222a39;border-radius:6px;padding:1px 6px;font-size:.9em}
+.group{border-top:1px solid rgba(255,255,255,.06);padding:14px 0 6px}
+.group h3{font-size:18px;font-weight:600;margin:0 0 4px}
+.tv .group h3{font-size:23px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{background:#1c2330;border:0;border-radius:12px;padding:8px 12px;font-size:15px;cursor:pointer;text-align:left;min-width:150px}
+.tv .chip{font-size:19px}
+.chip small{display:block;opacity:.65;font-size:12px;margin-top:2px}
+.tv .chip small{font-size:15px}
+.chip.on{background:#6b2a22}
+.chip.missing{opacity:.35}
+.banner{background:#7a5a12;border-radius:12px;padding:10px 14px;margin:10px 0}
 </style>
 </head>
 <body>
@@ -115,6 +131,18 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
 <section>
   <h2>Start-up</h2>
   <div class="row"><label>When the TV turns on<br><span style="opacity:.55;font-size:14px">Dock: the TV opens straight into the dock instead of LG's Home or the last HDMI input (and a console on that input no longer wakes up). Last used: LG's normal behaviour.</span></label><div class="seg" data-k="startOnHome" data-v="true:Dock,false:Last used"></div></div>
+  <div class="row"><label>Bring the dock back if the screen goes empty<br><span style="opacity:.55;font-size:14px">After a full power-off, LG restarts the part of webOS that runs the dock about a minute in, which can leave a black screen. When the TV is on and nothing at all is showing for 20 seconds, the dock opens again. Apps, inputs and the screen saver are never interrupted.</span></label><div class="seg" data-k="reopenHome" data-v="true:On,false:Off"></div></div>
+</section>
+
+<section id="cleanup">
+  <h2>Clean up webOS</h2>
+  <p class="note">Optional: everything here is off until you switch it on, and all of it can be undone here. Nothing on LG's read-only system is changed. While anything is on, one boot script applies your choices at every start-up: <code id="clHook">none now</code> (readable on the TV).</p>
+  <div class="row"><label>Repair boot scripts<br><span class="hint">Boot scripts that lost their "executable" mark are skipped by the TV without a word (once, that kept Glasshouse from starting). This fixes them at start-up and runs the ones that were skipped.</span></label><div class="seg" id="clGuard"></div></div>
+  <div class="row"><label>Keep LG's Home from reloading in the background<br><span class="hint">About a minute after start-up, LG's preload manager reloads LG's Home behind the scenes, which can leave the dock hidden on a black screen. This asks it not to, at every start-up.</span></label><div class="seg" id="clPreload"></div></div>
+  <div class="row"><label>Disable LG apps<br><span class="hint">Pick each one. Disabled apps lose their Home tile, never start by themselves and can't be opened. Apps with a Home tile go at the next restart; an LG update of the app is kept aside and comes back if you switch it on again.</span></label><div><button class="btn" id="clRecommended">Pick the recommended set</button> <button class="btn" id="clNone">Switch everything off</button></div></div>
+  <div id="clRestart" class="banner" style="display:none">Restart the TV to finish some of these changes.</div>
+  <div id="clNoPy" class="banner" style="display:none">This TV has no python3, which disabling apps needs. The other two options still work.</div>
+  <div id="clGroups"></div>
 </section>
 
 <div id="status">Saved</div>
@@ -242,6 +270,66 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
     }
   });
 
+  /* ---- Clean up webOS (server/cleanup.js) ---- */
+  var cl = null;
+  var STATE = { on: 'On', off: 'Disabled', missing: 'Not on this TV' };
+  function loadCleanup() { api('/api/dock/cleanup', 'GET', null, function (r) { if (r.ok) { cl = r; drawCleanup(); } }); }
+  function onOff(id, val) { return '<button data-cl="' + id + '" data-clv="true" class="' + (val ? 'on' : '') + '">On</button><button data-cl="' + id + '" data-clv="false" class="' + (val ? '' : 'on') + '">Off</button>'; }
+  function drawCleanup() {
+    if (!cl) return;
+    $('clGuard').innerHTML = onOff('guard', cl.options.guard);
+    $('clPreload').innerHTML = onOff('stopLgHomePreload', cl.options.stopLgHomePreload);
+    $('clHook').textContent = cl.hook || 'none now';
+    $('clRestart').style.display = cl.restart ? '' : 'none';
+    $('clNoPy').style.display = cl.python ? 'none' : '';
+    $('clGroups').innerHTML = cl.groups.map(function (g) {
+      return '<div class="group"><h3>' + esc(g.title) + '</h3>' + (g.desc ? '<div class="hint">' + esc(g.desc) + '</div>' : '') +
+        '<div class="chips"><button class="btn" data-clgroup="' + g.key + '" data-clv="true">Disable all</button><button class="btn" data-clgroup="' + g.key + '" data-clv="false">Keep all</button></div>' +
+        '<div class="chips">' + g.apps.map(function (a) {
+          var st = a.state === 'restart' ? (a.disabled ? 'Disabled after restart' : 'Back after restart') : STATE[a.state] || a.state;
+          return '<button class="chip' + (a.disabled ? ' on' : '') + (a.state === 'missing' ? ' missing' : '') + '" data-clapp="' + esc(a.id) + '" title="' + esc(a.id) + '">' +
+            esc(a.name) + (a.recommended ? '' : ' *') + '<small>' + esc(st) + '</small></button>';
+        }).join('') + '</div></div>';
+    }).join('') + '<p class="hint">* not in the recommended set. Hover or focus shows the app id.</p>';
+    if (location.hash === '#cleanup' && !drawCleanup.jumped) { drawCleanup.jumped = 1; $('cleanup').scrollIntoView(); if (tv) setCurrent($('clGuard').firstChild); }
+    else refocus();
+  }
+  function saveCleanup(change) {
+    api('/api/dock/cleanup', 'POST', change, function (r) {
+      if (!r.ok) { alert(r.error || 'Could not save'); return; }
+      saved(); cl.options = r.options; drawCleanup();
+      setTimeout(loadCleanup, 1500); setTimeout(loadCleanup, 12000);
+    });
+  }
+  function disabledList() { return cl.options.disable.slice(); }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b || !cl) return;
+    var list = disabledList(), id, i;
+    if (b.hasAttribute('data-cl')) { var ch = {}; ch[b.getAttribute('data-cl')] = b.getAttribute('data-clv') === 'true'; return saveCleanup(ch); }
+    if (b.hasAttribute('data-clapp')) {
+      id = b.getAttribute('data-clapp'); i = list.indexOf(id);
+      if (i >= 0) list.splice(i, 1); else list.push(id);
+      return saveCleanup({ disable: list });
+    }
+    if (b.hasAttribute('data-clgroup')) {
+      var on = b.getAttribute('data-clv') === 'true', g = cl.groups.filter(function (x) { return x.key === b.getAttribute('data-clgroup'); })[0];
+      g.apps.forEach(function (a) {
+        if (a.state === 'missing') return;
+        var j = list.indexOf(a.id);
+        if (on && j < 0) list.push(a.id);
+        if (!on && j >= 0) list.splice(j, 1);
+      });
+      return saveCleanup({ disable: list });
+    }
+    if (b.id === 'clRecommended') {
+      var rec = [];
+      cl.groups.forEach(function (g) { g.apps.forEach(function (a) { if (a.recommended && a.state !== 'missing') rec.push(a.id); }); });
+      return saveCleanup({ guard: true, stopLgHomePreload: true, disable: rec });
+    }
+    if (b.id === 'clNone') { if (window.confirm('Switch every cleanup option off and bring all apps back?')) saveCleanup({ guard: false, stopLgHomePreload: false, disable: [] }); }
+  });
+
   /* the paintings that come with the dock */
   var paintings = null;
   function drawGallery() {
@@ -346,6 +434,7 @@ input[type=text]{background:#222a39;border:0;border-radius:12px;padding:11px 14p
       cfg = r.config;
       if (tv) $('phone').textContent = 'Easier on a phone: open http://' + (r.lan || location.hostname) + ':8080/dock/settings on the same Wi-Fi. Back returns to Home.';
       draw();
+      loadCleanup();
     });
   });
 })();
