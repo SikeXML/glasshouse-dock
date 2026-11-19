@@ -17,7 +17,7 @@ REF="${DOCK_REF:-main}"
 TV=/var/lib/tvweb
 DOCK=$TV/dock
 HOOK=/var/lib/webosbrew/init.d/49-glasshouse-dock
-LOCAL=0; CLEANUP=0
+LOCAL=0; CLEANUP=0; TMP=""  # never inherit $TMP from the environment: it is rm -rf'd at the end
 for a in "$@"; do case "$a" in --local) LOCAL=1 ;; --cleanup) CLEANUP=1 ;; esac; done
 
 [ "$(id -u)" = 0 ] || { echo "Run this as root on the TV."; exit 1; }
@@ -60,6 +60,16 @@ chmod 755 "$HOOK"
 OUT=$("$NODE" "$DOCK/apply.js")
 echo "$OUT"
 case "$OUT" in *changed*) echo "Restarting Glasshouse..."; "$TV/tvwebctl" restart >/dev/null 2>&1 || true; sleep 4 ;; esac
+case "$OUT" in *FAILED*)
+  [ -n "$TMP" ] && rm -rf "$TMP"
+  echo
+  echo "Glasshouse Dock could not hook into this version of Glasshouse, so it is not active."
+  echo "Your TV keeps Glasshouse's own Home. Please open an issue with your Glasshouse version and the"
+  echo "output of: grep -n handleRequest $TV/lib/routes.js"
+  echo "  https://github.com/$REPO/issues"
+  echo "To remove the leftover files: sh $DOCK/uninstall.sh"
+  exit 1 ;;
+esac
 
 # The optional cleanup of LG's apps: its files are always installed, but it does nothing until
 # an option is switched on (Settings > Clean up webOS, or --cleanup for the recommended set).

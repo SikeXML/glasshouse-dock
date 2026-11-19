@@ -35,24 +35,35 @@ function serverModule() {
   if (remove) { if (read(dst) !== null) { fs.unlinkSync(dst); say('removed lib/dock.js'); restart = true; } return; }
   if (src && read(dst) !== src) { write(dst, src); say('installed lib/dock.js'); restart = true; }
 }
+/*
+ * The hook goes at the top of Glasshouse's request handler. Match it loosely
+ * (spacing, parameter names, CRLF line endings) so a reformatted routes.js
+ * still takes it. Returns true when the dock's server part is hooked in.
+ */
+var HOOKED = /^[ \t]*if \(require\('\.\/dock'\)\.handle\(\w+, \w+\)\) return;[ \t]*\r?\n/m;
+var HANDLER = /function\s+handleRequest\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)\s*\{[ \t]*(\r?\n)/;
 function routes() {
-  var p = path.join(TV, 'lib', 'routes.js'), s = read(p), line = "  if (require('./dock').handle(req, res)) return;\n";
-  if (s === null) return say('routes.js not found: is Glasshouse installed?');
+  var p = path.join(TV, 'lib', 'routes.js'), s = read(p);
+  if (s === null) { say('routes.js not found: is Glasshouse installed?'); return false; }
   var has = s.indexOf("require('./dock')") >= 0;
-  if (remove) { if (has) { write(p, s.replace(line, '')); say('unhooked routes.js'); restart = true; } return; }
-  if (has) return;
-  var anchor = 'function handleRequest(req, res) {\n';
-  if (s.indexOf(anchor) < 0) return say('routes.js has changed shape; the dock settings will not load. Please report it.');
-  write(p, s.replace(anchor, anchor + line));
+  if (remove) { if (has) { write(p, s.replace(HOOKED, '')); say('unhooked routes.js'); restart = true; } return false; }
+  if (has) return true;
+  var m = HANDLER.exec(s);
+  if (!m) { say("routes.js has changed shape, so the dock can't hook in; Glasshouse's own Home stays. Please report it."); return false; }
+  var at = m.index + m[0].length;
+  write(p, s.slice(0, at) + "  if (require('./dock').handle(" + m[1] + ', ' + m[2] + ')) return;' + m[3] + s.slice(at));
   say('hooked routes.js'); restart = true;
+  return true;
 }
 
 /* 2. the Home page itself (Glasshouse's own is kept beside it) */
-function homePage() {
+function homePage(hooked) {
   var p = path.join(TV, 'assets', 'home.html'), keep = path.join(TV, 'assets', 'home.glasshouse.html'), s = read(p);
   var mine = s !== null && s.indexOf(MARK) >= 0;
-  if (remove) {
+  /* without the server part the dock's page has nothing to show: a black screen. Keep Glasshouse's. */
+  if (remove || !hooked) {
     if (mine && read(keep) !== null) { write(p, read(keep)); fs.unlinkSync(keep); say("restored Glasshouse's Home page"); }
+    if (!remove) say('FAILED: the dock is not active');
     return;
   }
   var src = read(path.join(DOCK, 'assets', 'home.html'));
@@ -103,5 +114,5 @@ function noFade() {
   if (s.indexOf('var FADE_MS = 300;') >= 0) { write(p, s.replace('var FADE_MS = 300;', 'var FADE_MS = 0; /* glasshouse-dock */')); say('removed the Home fade'); }
 }
 
-serverModule(); routes(); homePage(); takeoverNotice(); bootHook(); noFade();
+serverModule(); var hooked = routes(); homePage(hooked); takeoverNotice(); bootHook(); noFade();
 if (restart) console.log('changed');
