@@ -440,9 +440,25 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
   function beat(key) { api('/api/home/beat', 'POST', { focused: document.hasFocus(), visible: document.visibilityState || 'visible', key: !!key }); }
   setInterval(function () { beat(false); }, 4000);
 
+  /*
+   * Glasshouse answers but has no dock routes (its routes.js lost the hook, e.g. after an
+   * update): this page would stay black. Hand over to Glasshouse's own Home if it is there.
+   */
+  function noServer() {
+    if (noServer.done) return; noServer.done = true;
+    var x = new XMLHttpRequest();
+    x.open('GET', '/assets/home.glasshouse.html');
+    x.onload = function () {
+      if (x.status === 200 && /<html/i.test(x.responseText)) { location.replace('/assets/home.glasshouse.html'); return; }
+      $('boot').innerHTML = '<div style="position:absolute;left:10%;right:10%;top:40%;color:#fff;font:28px/1.5 sans-serif;text-align:center">' +
+        'Glasshouse Dock is not loaded by Glasshouse.<br>Run the install command again, or uninstall it: sh /var/lib/tvweb/dock/uninstall.sh</div>';
+    };
+    x.send();
+  }
+
   function load(first) {
     api('/api/dock/config', 'GET', null, function (r) {
-      if (!r.ok) { cfg = cfg || {}; return; }
+      if (!r.ok) { if (!cfg && r.error === 'not found') noServer(); cfg = cfg || {}; return; }
       var next = JSON.stringify(r.config);
       api('/api/home/catalogue', 'GET', null, function (c) {
         if (!c.ok) return;
