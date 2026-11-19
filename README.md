@@ -117,6 +117,18 @@ Your choices are in `/var/lib/tvweb/dock/cleanup/options.json`.
 
 **Needs** `python3` on the TV for disabling apps (the other two options work without it). Tested on an LG G4 with webOS 11.2. On a TV without the writable system-app folder, apps with a tile can't be hidden; they are covered and closed instead. Reports from other models are welcome.
 
+## Something not working?
+
+Run this on the TV and paste what it shows into a [new issue](https://github.com/SikeXML/glasshouse-dock/issues):
+
+```sh
+sh /var/lib/tvweb/dock/report.sh && cat /var/lib/tvweb/dock/report.txt
+```
+
+The report has your TV model and webOS version, the Glasshouse and dock versions, what the installer changed, and whether Glasshouse passes the dock's pages on. It holds nothing private: no settings, location, addresses or serial numbers. The installer writes one after every install too.
+
+If the installer can't fit the dock to your version of Glasshouse, it says so and leaves Glasshouse's own Home in place, so you never end up on a black screen.
+
 ## Uninstall
 
 ```sh

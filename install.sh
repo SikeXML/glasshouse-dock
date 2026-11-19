@@ -40,7 +40,9 @@ cp "$SRC/apply.js" "$DOCK/"
 cp "$SRC/server/dock.js" "$DOCK/server/"
 cp "$SRC/assets/home.html" "$SRC/assets/settings.html" "$DOCK/assets/"
 cp "$SRC/uninstall.sh" "$DOCK/" 2>/dev/null || true
+cp "$SRC/report.sh" "$DOCK/" 2>/dev/null || true
 [ -f "$SRC/VERSION" ] && cp "$SRC/VERSION" "$DOCK/"
+if [ $LOCAL = 1 ]; then echo "local copy ($SRC)"; else echo "$REPO ($REF)"; fi > "$DOCK/VERSION.ref"
 [ -d "$SRC/gallery" ] && { rm -rf "$DOCK/gallery"; cp -r "$SRC/gallery" "$DOCK/gallery"; }
 
 # At every boot, before Glasshouse starts: put the dock back if an update replaced it.
@@ -57,15 +59,23 @@ exit 0
 EOF
 chmod 755 "$HOOK"
 
-OUT=$("$NODE" "$DOCK/apply.js")
+RC=0; OUT=$("$NODE" "$DOCK/apply.js" 2>&1) || RC=$?
+[ $RC = 0 ] || OUT="$OUT
+dock: FAILED: apply.js stopped with exit code $RC"
 echo "$OUT"
+echo "$OUT" > "$DOCK/install-output.txt"
+# A problem report anyone can send us: TV model, webOS and Glasshouse versions, what the dock changed
+report() { [ -f "$DOCK/report.sh" ] && sh "$DOCK/report.sh" --apply-output "$DOCK/install-output.txt" >/dev/null 2>&1 || true; }
 case "$OUT" in *changed*) echo "Restarting Glasshouse..."; "$TV/tvwebctl" restart >/dev/null 2>&1 || true; sleep 4 ;; esac
 case "$OUT" in *FAILED*)
   [ -n "$TMP" ] && rm -rf "$TMP"
   echo
-  echo "Glasshouse Dock could not hook into this version of Glasshouse, so it is not active."
-  echo "Your TV keeps Glasshouse's own Home. Please open an issue with your Glasshouse version and the"
-  echo "output of: grep -n handleRequest $TV/lib/routes.js"
+  echo "Glasshouse Dock could not be put in place on this TV, so it is not active."
+  echo "Your TV keeps Glasshouse's own Home."
+  report
+  echo
+  echo "A report with your TV model, webOS and Glasshouse versions is in $DOCK/report.txt"
+  echo "Please open an issue and paste it in (show it with: cat $DOCK/report.txt)"
   echo "  https://github.com/$REPO/issues"
   echo "To remove the leftover files: sh $DOCK/uninstall.sh"
   exit 1 ;;
@@ -84,12 +94,14 @@ luna-send -n 1 -w 3000 luna://com.palm.webappmanager/killApp '{"appId":"com.webo
 sleep 1
 luna-send -n 1 -w 3000 luna://com.webos.applicationManager/launch '{"id":"com.webos.app.home"}' >/dev/null 2>&1 || true
 [ -n "$TMP" ] && rm -rf "$TMP"
+report
 
 IP=$(ip -4 -o addr show 2>/dev/null | awk '$2!="lo"{sub(/\/.*/,"",$4);print $4;exit}')
 echo
 echo "Glasshouse Dock is installed."
 echo "Settings: Home > Down > Settings on the TV, or http://${IP:-<tv-ip>}:8080/dock/settings on a phone."
 echo "Uninstall: sh $DOCK/uninstall.sh"
+echo "Something not right? Run: sh $DOCK/report.sh  and paste $DOCK/report.txt into an issue."
 if [ "$CL" = on ]; then
   echo
   echo "Clean up webOS is on (Settings > Clean up webOS shows and changes every option)."
