@@ -10,11 +10,11 @@
 *{box-sizing:border-box}
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#080b12;color:#fff;font-family:"Outfit","Manrope",Arial,sans-serif}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outline:none;padding:0}
-#wall{position:absolute;inset:-1%;background:#080b12 center/cover no-repeat;transition:background-image 1.2s ease}
+#wall{position:absolute;top:-1%;right:-1%;bottom:-1%;left:-1%;background:#080b12 center/cover no-repeat;transition:background-image 1.2s ease}
 #caption{position:absolute;left:5%;bottom:3.4%;font-size:19px;line-height:1.35;opacity:0;transition:opacity .6s;text-shadow:0 1px 8px rgba(0,0,0,.8);pointer-events:none;max-width:40%}
 #caption b{font-weight:600}
-#shade{position:absolute;inset:0;pointer-events:none}
-#boot{position:absolute;inset:0;background:#000;z-index:50;transition:opacity .3s;pointer-events:none}
+#shade{position:absolute;top:0;right:0;bottom:0;left:0;pointer-events:none}
+#boot{position:absolute;top:0;right:0;bottom:0;left:0;background:#000;z-index:50;transition:opacity .3s;pointer-events:none}
 
 /* ---- widgets ---- */
 #widgets{position:absolute;z-index:2;display:flex;flex-direction:column;gap:6px;text-shadow:0 2px 14px rgba(0,0,0,.55);pointer-events:none}
@@ -81,7 +81,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
 .nohint #hint{display:none}
 
 /* ---- overlays: all apps, recent apps ---- */
-.sheet{position:absolute;inset:0;background:rgba(8,10,16,.9);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);z-index:20;padding:80px 110px;display:none;overflow:hidden}
+.sheet{position:absolute;top:0;right:0;bottom:0;left:0;background:rgba(8,10,16,.9);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);z-index:20;padding:80px 110px;display:none;overflow:hidden}
 .sheet.open{display:block}
 .sheet h1{font-size:38px;font-weight:600;margin:0 0 34px}
 #grid{display:flex;flex-wrap:wrap;gap:26px;align-content:flex-start;height:calc(100% - 80px);overflow:hidden}
@@ -89,7 +89,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
 .g img{width:86px;height:86px;object-fit:contain}
 .g span{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g.focus{transform:scale(1.07);box-shadow:0 0 0 4px var(--accent);background:rgba(255,255,255,.16)}
-#recents{inset:auto 0 0 0;height:38%;padding:30px 70px;border-radius:28px 28px 0 0}
+#recents{top:auto;right:0;bottom:0;left:0;height:38%;padding:30px 70px;border-radius:28px 28px 0 0}
 #recentRow{display:flex;gap:22px}
 .rc{flex:0 0 270px;height:220px;border-radius:18px;overflow:hidden;background:#232936;font-size:20px;transition:transform .14s,box-shadow .14s}
 .rc img{display:block;width:270px;height:152px;object-fit:cover;background:#11151e}
@@ -97,6 +97,15 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
 .rc.focus{transform:scale(1.05);box-shadow:0 0 0 4px var(--accent)}
 #recentHint{font-size:19px;opacity:.6;margin-top:20px}
 #toast{position:absolute;left:50%;top:6%;transform:translateX(-50%);background:rgba(20,24,34,.9);padding:16px 28px;border-radius:14px;font-size:24px;display:none;z-index:40}
+/* older TV browsers (webOS 6 and before) have no gap in flex rows: margins instead, only there */
+.nogap #widgets>*+*{margin-top:6px}
+.nogap #weather>*+*{margin-left:12px}
+.nogap #dock>*+*{margin-left:var(--gap)}
+.nogap #row2>*+*{margin-left:20px}
+.nogap .r2>*+*{margin-top:12px}
+.nogap #grid>*{margin:0 26px 26px 0}
+.nogap .g>*+*{margin-top:14px}
+.nogap #recentRow>*+*{margin-left:22px}
 </style>
 </head>
 <body>
@@ -116,6 +125,18 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;outlin
   var cfg = null, cat = null, dock = [], row2 = [], focus = { row: 0, i: 0 }, mode = 'home', gridItems = [], recentItems = [];
   var BOOT = Date.now(); /* icons are cached a day by Glasshouse: fresh ones on each start */
   var $ = function (id) { return document.getElementById(id); };
+  /* no gap between flex items before Chrome 84 (webOS 6 and older): the page adds margins instead */
+  (function () {
+    try {
+      var d = document.createElement('div');
+      d.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+      d.appendChild(document.createElement('div')); d.appendChild(document.createElement('div'));
+      document.body.appendChild(d);
+      var has = d.scrollHeight === 1;
+      document.body.removeChild(d);
+      if (!has) document.body.className += ' nogap';
+    } catch (e) {}
+  })();
 
   function api(path, method, data, cb) {
     var x = new XMLHttpRequest();
